@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PQC Device Assurance | Continuous Post-Quantum Firmware Assurance</title>
+  <meta name="description" content="Continuous PQC updateability assurance. Every firmware release changes your PQC migration risk. We tell you whether you can still ship the quantum-safe update without reopening the file.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=6.2.0&ts=202609291855">
+  <script>
+    window.openForgotPassword = function(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const formSignIn = document.getElementById("formSignIn");
+      const formSignUp = document.getElementById("formSignUp");
+      const formForgot = document.getElementById("formForgotPassword");
+      const tabSignIn = document.getElementById("tabBtnSignIn");
+      const tabSignUp = document.getElementById("tabBtnSignUp");
+      const tabForgot = document.getElementById("tabBtnForgot");
+      const signInEmail = document.getElementById("signInEmail");
+      const forgotEmail = document.getElementById("forgotEmail");
+
+      if (formSignIn) formSignIn.classList.add("hidden");
+      if (formSignUp) formSignUp.classList.add("hidden");
+      if (formForgot) formForgot.classList.remove("hidden");
+      if (tabSignIn) tabSignIn.classList.remove("active");
+      if (tabSignUp) tabSignUp.classList.remove("active");
+      if (tabForgot) {
+        tabForgot.style.display = "block";
+        tabForgot.classList.add("active");
+      }
+
+      if (signInEmail && forgotEmail && signInEmail.value) {
+        forgotEmail.value = signInEmail.value.trim();
+      }
+      const newPwd = document.getElementById("forgotNewPassword");
+      if (newPwd) newPwd.focus();
+    };
+
+    window.backToSignIn = function(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const formSignIn = document.getElementById("formSignIn");
+      const formSignUp = document.getElementById("formSignUp");
+      const formForgot = document.getElementById("formForgotPassword");
+      const tabSignIn = document.getElementById("tabBtnSignIn");
+      const tabSignUp = document.getElementById("tabBtnSignUp");
+      const tabForgot = document.getElementById("tabBtnForgot");
+
+      if (formForgot) formForgot.classList.add("hidden");
+      if (formSignUp) formSignUp.classList.add("hidden");
+      if (formSignIn) formSignIn.classList.remove("hidden");
+      if (tabForgot) {
+        tabForgot.style.display = "none";
+        tabForgot.classList.remove("active");
+      }
+      if (tabSignUp) tabSignUp.classList.remove("active");
+      if (tabSignIn) tabSignIn.classList.add("active");
+    };
+
+    window.handleForgotPasswordSubmit = async function(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const emailInput = document.getElementById("forgotEmail");
+      const newPwdInput = document.getElementById("forgotNewPassword");
+      const confirmPwdInput = document.getElementById("forgotConfirmPassword");
+
+      const email = emailInput ? emailInput.value.trim().toLowerCase() : "";
+      const newPassword = newPwdInput ? newPwdInput.value : "";
+      const confirmPassword = confirmPwdInput ? confirmPwdInput.value : "";
+
+      if (!email || !newPassword || !confirmPassword) {
+        alert("Please fill in all fields (Email, New Password, and Confirm Password).");
+        return false;
+      }
+      if (newPassword !== confirmPassword) {
+        alert("New passwords do not match. Please verify.");
+        return false;
+      }
+      if (newPassword.length < 6) {
+        alert("Password must be at least 6 characters.");
+        return false;
+      }
+
+      const btn = document.getElementById("btnSubmitForgotPassword");
+      if (btn) btn.disabled = true;
+
+      try {
+        const res = await fetch("/api/auth/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, new_password: newPassword })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          alert(data.message || "Password updated successfully! You can now sign in.");
+          window.backToSignIn();
+          const signInEmailInput = document.getElementById("signInEmail");
+          const signInPasswordInput = document.getElementById("signInPassword");
+          if (signInEmailInput) signInEmailInput.value = email;
+          if (signInPasswordInput) {
+            signInPasswordInput.value = "";
+            signInPasswordInput.focus();
+          }
+        } else {
+          alert(data.error || "Password reset failed. Account not found.");
+        }
+      } catch (err) {
+        alert("Network error connecting to reset service.");
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+      return false;
+    };
+  </script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Navigation / Brand Header -->
+    <header class="top-nav">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="brand-titles">
+          <h1>PQC Device Assurance</h1>
+          <span class="subtext">Continuous Quantum-Safe Updateability Platform</span>
+        </div>
+      </div>
+      <div class="header-badges">
+        <!-- Layer Navigation Buttons -->
+        <button id="navBtnEngine" class="nav-layer-btn active" title="Switch to Continuous PQC Assurance Engine">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          <span>Platform Engine</span>
+        </button>
+        <button id="navBtnPricing" class="nav-layer-btn" title="View Commercial Pricing Models">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>Pricing &amp; Plans</span>
+        </button>
+        <button id="navBtnAuth" class="nav-layer-btn auth-cta" title="Sign In or Register for OEM Account">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span id="navAuthLabel">Sign In</span>
+        </button>
+        <div id="userProfileBadge" class="user-profile-badge hidden">
+          <span class="user-badge-icon" id="userBadgeIcon">👤</span>
+          <span class="user-badge-name" id="userBadgeName"></span>
+          <span class="user-badge-plan" id="userBadgePlan">Enterprise+</span>
+          <button id="btnLogout" class="btn-logout" title="Log out">&times;</button>
+        </div>
+
+        <button id="btnHealthCheck" class="badge-pill pulse btn-interactive" title="Click to verify server status">
+          <span class="pulse-dot"></span>
+          <span class="badge-text" id="serverStatusText">System Live • 127.0.0.1:8000</span>
+        </button>
+        <button id="btnHeaderZeroReopen" class="badge-pill outline btn-interactive" title="Click to view Zero Reopened Files Regulatory Defense Memorandum" style="cursor: pointer; border-color: rgba(16, 185, 129, 0.5); color: var(--state-can-migrate);">
+          <span>🛡️ Zero Reopened Files</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- SECOND WEB LAYER: Pricing Models Page Layer -->
+    <section class="pricing-layer-section hidden" id="pricingLayerSection">
+      <div class="pricing-hero">
+        <div class="pricing-badge-pill">COMMERCIAL PLANS &amp; FLEET LICENSING</div>
+        <h2 class="pricing-headline">Continuous PQC Device Assurance Pricing Models</h2>
+        <p class="pricing-subheadline">
+          The unit of value is the device family over its 15-year lifecycle &mdash; turning episodic recertification consulting into continuous automated software.
+        </p>
+        
+        <div class="billing-toggle-container">
+          <span class="billing-cycle-label active" id="lblMonthly">Monthly Recurring</span>
+          <label class="billing-switch">
+            <input type="checkbox" id="billingCycleSwitch">
+            <span class="switch-slider"></span>
+          </label>
+          <span class="billing-cycle-label" id="lblAnnual">Annual Commitment <span class="discount-badge">Save 15%</span></span>
+        </div>
+      </div>
+
+      <!-- 4 Pricing Cards Grid -->
+      <div class="pricing-cards-grid">
+        <!-- Starter Plan -->
+        <div class="pricing-card" data-plan="Starter">
+          <div class="pricing-card-header">
+            <span class="plan-tier-name">Starter</span>
+            <div class="plan-price-block">
+              <span class="price-currency">$</span>
+              <span class="price-val" data-monthly="1,500" data-annual="1,275">1,500</span>
+              <span class="price-period">/mo</span>
+            </div>
+            <p class="plan-best-for"><strong>Best for:</strong> Startups / small embedded teams</p>
+            <div class="plan-device-families">
+              <span class="family-count-badge">1–3</span>
+              <span class="family-count-label">Device families</span>
+            </div>
+          </div>
+          <div class="pricing-card-body">
+            <ul class="plan-features-list">
+              <li><span class="chk">✓</span> Continuous binary CI/CD assessment</li>
+              <li><span class="chk">✓</span> 9-Stage automated assurance pipeline</li>
+              <li><span class="chk">✓</span> MCUboot partition budget tracking</li>
+              <li><span class="chk">✓</span> CycloneDX 1.6 CBOM export</li>
+              <li><span class="chk">✓</span> Standard community &amp; email support</li>
+            </ul>
+          </div>
+          <div class="pricing-card-footer">
+            <a href="https://buy.stripe.com/test_bJe7sDdBQ9y50azbwy2oE0m" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-block btn-select-plan" data-plan="Starter" data-stripe-url="https://buy.stripe.com/test_bJe7sDdBQ9y50azbwy2oE0m">
+              <span>Subscribe &bull; $1,500/mo</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Professional Plan (Highlighted) -->
+        <div class="pricing-card featured" data-plan="Professional">
+          <div class="featured-badge">MOST POPULAR FOR OEMS</div>
+          <div class="pricing-card-header">
+            <span class="plan-tier-name">Professional</span>
+            <div class="plan-price-block">
+              <span class="price-currency">$</span>
+              <span class="price-val text-cyan" data-monthly="4,000" data-annual="3,400">4,000</span>
+              <span class="price-period">/mo</span>
+            </div>
+            <p class="plan-best-for"><strong>Best for:</strong> Growing IoT / hardware companies</p>
+            <div class="plan-device-families">
+              <span class="family-count-badge cyan">Up to 10</span>
+              <span class="family-count-label">Device families</span>
+            </div>
+          </div>
+          <div class="pricing-card-body">
+            <ul class="plan-features-list">
+              <li><span class="chk">✓</span> <strong>Everything in Starter</strong></li>
+              <li><span class="chk">✓</span> NIST Algorithm Substitution Matrix (9 schemes)</li>
+              <li><span class="chk">✓</span> Self-Healing Migration Advisor (.patch code)</li>
+              <li><span class="chk">✓</span> Release History &amp; Regression tracking</li>
+              <li><span class="chk">✓</span> Custom hardware family registry</li>
+              <li><span class="chk">✓</span> Priority 4-hour SLA response</li>
+            </ul>
+          </div>
+          <div class="pricing-card-footer">
+            <a href="https://buy.stripe.com/test_6oUcMX41g25De1p6ce2oE0n" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-block btn-select-plan" data-plan="Professional" data-stripe-url="https://buy.stripe.com/test_6oUcMX41g25De1p6ce2oE0n">
+              <span>Subscribe &bull; $4,000/mo</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Enterprise Plan -->
+        <div class="pricing-card" data-plan="Enterprise">
+          <div class="pricing-card-header">
+            <span class="plan-tier-name">Enterprise</span>
+            <div class="plan-price-block">
+              <span class="price-currency">$</span>
+              <span class="price-val" data-monthly="10,000" data-annual="8,500">10,000</span>
+              <span class="price-period">/mo</span>
+            </div>
+            <p class="plan-best-for"><strong>Best for:</strong> Automotive, medical, industrial OEMs</p>
+            <div class="plan-device-families">
+              <span class="family-count-badge green">Up to 30</span>
+              <span class="family-count-label">Device families</span>
+            </div>
+          </div>
+          <div class="pricing-card-body">
+            <ul class="plan-features-list">
+              <li><span class="chk">✓</span> <strong>Everything in Professional</strong></li>
+              <li><span class="chk">✓</span> Autonomous Letter-to-File (Zero Reopen) Dossier</li>
+              <li><span class="chk">✓</span> FDA 524B, ISO 21434 &amp; IEC 62443 trace matrix</li>
+              <li><span class="chk">✓</span> Hardware OTP ROM root keystore verification</li>
+              <li><span class="chk">✓</span> Air-gapped on-premise runner support</li>
+              <li><span class="chk">✓</span> Dedicated security architect</li>
+            </ul>
+          </div>
+          <div class="pricing-card-footer">
+            <a href="https://buy.stripe.com/test_14AcMXapE39He1p9oq2oE0o" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-block btn-select-plan" data-plan="Enterprise" data-stripe-url="https://buy.stripe.com/test_14AcMXapE39He1p9oq2oE0o">
+              <span>Subscribe &bull; $10,000/mo</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Enterprise+ Plan -->
+        <div class="pricing-card" data-plan="Enterprise+">
+          <div class="pricing-card-header">
+            <span class="plan-tier-name">Enterprise+</span>
+            <div class="plan-price-block">
+              <span class="price-currency">$</span>
+              <span class="price-val" data-monthly="25,000+" data-annual="21,250+">25,000+</span>
+              <span class="price-period">/mo</span>
+            </div>
+            <p class="plan-best-for"><strong>Best for:</strong> Large OEMs / critical infrastructure</p>
+            <div class="plan-device-families">
+              <span class="family-count-badge purple">100+ / Negotiated</span>
+              <span class="family-count-label">Device families</span>
+            </div>
+          </div>
+          <div class="pricing-card-body">
+            <ul class="plan-features-list">
+              <li><span class="chk">✓</span> <strong>Everything in Enterprise</strong></li>
+              <li><span class="chk">✓</span> Custom silicon ASIC / FPGA envelope modeling</li>
+              <li><span class="chk">✓</span> Dedicated regulatory legal defense packages</li>
+              <li><span class="chk">✓</span> Tailored dual-signing bootloader kernels</li>
+              <li><span class="chk">✓</span> Executive audit attestation sign-off</li>
+              <li><span class="chk">✓</span> 24/7 dedicated engineering pod</li>
+            </ul>
+          </div>
+          <div class="pricing-card-footer">
+            <a href="https://buy.stripe.com/test_cNifZ90P425D2iH4462oE0p" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-block btn-select-plan" data-plan="Enterprise+" data-stripe-url="https://buy.stripe.com/test_cNifZ90P425D2iH4462oE0p">
+              <span>Subscribe &bull; $25,000+/mo</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROI & Return Banner -->
+      <div class="pricing-roi-banner">
+        <div class="roi-icon">💡</div>
+        <div class="roi-text">
+          <strong>The Economic Value:</strong> A single regulatory recertification reopening costs an estimated <strong>$120,000+</strong> and 6–9 months of delay per device family. Continuous assurance guarantees zero reopened files across your fleet.
+        </div>
+        <button class="btn btn-secondary btn-return-engine" id="btnReturnEngineFromPricing">
+          ← Return to Platform Engine
+        </button>
+      </div>
+
+      <div class="pricing-support-bar" style="margin-top: 1rem; text-align: center; font-size: 0.82rem; color: var(--text-dim); display: flex; align-items: center; justify-content: center; gap: 0.6rem;">
+        <span>OEM Enterprise Enquiries &amp; Customer Support:</span>
+        <a href="mailto:bjtmusic12@gmail.com" class="support-email-link" style="font-size: 0.8rem;">bjtmusic12@gmail.com</a>
+      </div>
+    </section>
+
+    <!-- FIRST/CORE WEB LAYER: Platform Engine -->
+    <div class="engine-layer-section" id="engineLayerSection">
+      <!-- Positioning Banner -->
+      <section class="thesis-banner">
+      <div class="thesis-content">
+        <div class="thesis-quote">
+          <p class="primary-thesis">
+            &ldquo;Every firmware release changes your PQC migration risk.<br>
+            <span class="highlight">We tell you whether you can still ship the quantum-safe update.&rdquo;</span>
+          </p>
+          <p class="secondary-thesis">
+            The unit of value is the device family over its 15-year lifecycle &mdash; turning episodic consulting into continuous software.
+          </p>
+        </div>
+
+        <!-- Quick Scenario Benchmark Presets -->
+        <div class="preset-buttons-bar">
+          <span class="preset-label">Test Scenarios:</span>
+          <button class="btn btn-preset active" data-family="controller-x7" data-fw="firmware-4.18.2.bin" data-policy="hybrid-pqc" data-size="505">
+            Scenario 1: Controller X7 (84 KiB Slot Bloat)
+          </button>
+          <button class="btn btn-preset" data-family="controller-x7" data-fw="firmware-4.18.1.bin" data-policy="hybrid-pqc" data-size="360">
+            Scenario 2: Controller X7 (Clean Baseline)
+          </button>
+          <button class="btn btn-preset" data-family="acme-pump-m3-revc" data-fw="pump-firmware-2.5.0.bin" data-policy="ml-dsa-65" data-size="280">
+            Scenario 3: Acme Pump (ROM Locked &bull; Blocked)
+          </button>
+          <button class="btn btn-preset" data-family="autonet-tcu-v3" data-fw="tcu-firmware-3.3.0.bin" data-policy="fips-204" data-size="1200">
+            Scenario 4: Automotive TCU (All Clear)
+          </button>
+          <button class="btn btn-preset" data-family="grid-meter-nx5" data-fw="meter-fw-1.3.0.bin" data-policy="hybrid-pqc" data-size="120">
+            Scenario 5: Smart Meter (Redesign Required)
+          </button>
+          <button class="btn btn-preset" data-family="aero-fcc-700" data-fw="fcc-fw-3.2.0.bin" data-policy="stateful-hash" data-size="1200">
+            Scenario 6: Aero Flight Control (DO-178C)
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Controls -->
+      <div class="controls-quick">
+        <div class="selector-group">
+          <div class="label-with-action">
+            <label for="deviceFamilySelect">Device Family</label>
+            <button id="btnOpenAddFamilyModal" class="btn-text-action" title="Register custom target hardware envelope">+ Add Custom Family</button>
+          </div>
+          <select id="deviceFamilySelect" class="form-select">
+            <option value="controller-x7" selected>controller-x7 (Aegis Industrial Edge Gateway)</option>
+            <option value="acme-pump-m3-revc">acme-pump-m3-revc (Acme Infusion Pump - FDA)</option>
+            <option value="autonet-tcu-v3">autonet-tcu-v3 (AutoNet Telematics TCU)</option>
+            <option value="grid-meter-nx5">grid-meter-nx5 (GridMetrics Smart Electricity Meter)</option>
+            <option value="aero-fcc-700">aero-fcc-700 (AeroDyn Flight Control Computer)</option>
+          </select>
+        </div>
+        <div class="selector-group">
+          <label for="targetPolicySelect">Target Policy</label>
+          <select id="targetPolicySelect" class="form-select">
+            <option value="hybrid-pqc" selected>hybrid-pqc (ML-DSA-65 + ML-KEM-768)</option>
+            <option value="fips-204">FIPS 204 Pure (ML-DSA-44)</option>
+            <option value="ml-dsa-65">FIPS 204 Level 3 (ML-DSA-65)</option>
+            <option value="fips-205">FIPS 205 (SLH-DSA-128s Stateless Hash)</option>
+            <option value="stateful-hash">RFC 8554 (LMS Stateful Hash Bootloader)</option>
+          </select>
+        </div>
+        <button id="runAssessBtn" class="btn btn-primary" title="Trigger full 9-stage analysis">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Re-evaluate Release
+        </button>
+      </div>
+    </section>
+
+    <!-- Dedicated Regulatory Defense & Zero Reopened Files Command Center (Front & Center) -->
+    <section class="regulatory-defense-hero" id="regulatoryDefenseHero">
+      <div class="defense-hero-header">
+        <div class="defense-hero-title-group">
+          <div class="zero-reopen-shield">
+            <span class="shield-icon">🛡️</span>
+            <span class="shield-text">ZERO REOPENED FILES</span>
+          </div>
+          <div class="defense-headings">
+            <h2 class="defense-main-title">Regulatory Compliance Memorandum (Letter-to-File)</h2>
+            <p class="defense-subtitle">
+              Continuous Cryptographic Delta Certification &bull; Governing Regime: 
+              <span class="highlight-tag" id="defenseStandardSpan">IEC 62443-4-2</span>
+            </p>
+          </div>
+        </div>
+        <div class="defense-hero-status-group">
+          <span class="defense-regime-tag" id="defenseRegimeTag">IEC-62443 SL3 Certified</span>
+          <span class="defense-status-pill" id="defenseStatusPill">LETTER_TO_FILE APPROVED</span>
+        </div>
+      </div>
+
+      <div class="defense-hero-body">
+        <p class="defense-narrative" id="defenseDescription">
+          Formal technical attestation that firmware delta preserves classical root-of-trust under 
+          <span class="highlight-tag" id="defenseStandardSpan2">IEC 62443-4-2</span> without reopening regulatory files, saving an estimated <strong>$120,000+</strong> and 6–9 months of recertification delay.
+        </p>
+
+        <!-- 4 Key Telemetry Metric Cards (Explicit Interactive Buttons!) -->
+        <div class="defense-metrics-grid">
+          <div class="defense-metric-card" id="cardMetricFiling" role="button" tabindex="0" title="Click to inspect Regulatory Determination &amp; Filing Decision Tree">
+            <div class="card-header-row">
+              <span class="metric-label">REGULATORY DETERMINATION</span>
+              <span class="card-action-chip">Tree ↗</span>
+            </div>
+            <span class="metric-val text-success" id="metricFilingState">Letter-to-File (Zero Reopen)</span>
+            <span class="metric-sub" id="metricFilingSub">Zero Reopened Files • Approved</span>
+            <button class="btn-card-inspect" id="btnInspectFiling" type="button">Inspect Determination &rarr;</button>
+          </div>
+
+          <div class="defense-metric-card" id="cardMetricRot" role="button" tabindex="0" title="Click to inspect Root of Trust &amp; Dual-Signature Chain">
+            <div class="card-header-row">
+              <span class="metric-label">SECURE BOOT INTEGRITY</span>
+              <span class="card-action-chip">Verify ↗</span>
+            </div>
+            <span class="metric-val text-success" id="metricRotState">Root of Trust Preserved</span>
+            <span class="metric-sub" id="metricRotSub">Dual Classical + PQC Chain</span>
+            <button class="btn-card-inspect" id="btnInspectRot" type="button">Verify RoT Chain &rarr;</button>
+          </div>
+
+          <div class="defense-metric-card" id="cardMetricTrace" role="button" tabindex="0" title="Click to inspect Regulatory Traceability Matrix &amp; Standards Mapping">
+            <div class="card-header-row">
+              <span class="metric-label">AUDIT TRACEABILITY</span>
+              <span class="card-action-chip">Matrix ↗</span>
+            </div>
+            <span class="metric-val text-cyan" id="metricTraceability">100% Deterministic</span>
+            <span class="metric-sub" id="metricTraceSub">DO-178C / IEC 62443 Matrix</span>
+            <button class="btn-card-inspect" id="btnInspectTrace" type="button">Inspect Trace Matrix &rarr;</button>
+          </div>
+
+          <div class="defense-metric-card" id="cardMetricDossier" role="button" tabindex="0" title="Click to open compiled Regulatory Audit Dossier">
+            <div class="card-header-row">
+              <span class="metric-label">REPRESENTATIVE DOSSIER</span>
+              <span class="card-action-chip">Dossier ↗</span>
+            </div>
+            <span class="metric-val text-mono" id="metricDossierId">LTF-IEC-62443-4_18_2</span>
+            <span class="metric-sub" id="metricDossierSub">Auto-compiled with SHA-256</span>
+            <button class="btn-card-inspect" id="btnInspectDossier" type="button">Open Full Dossier &rarr;</button>
+          </div>
+        </div>
+
+        <!-- Prominent Action Toolbar (Fully visible, left-aligned, never pushed far right) -->
+        <div class="defense-actions-bar">
+          <button id="btnOpenLtfBanner" class="btn btn-ltf-primary" title="Open complete Letter-to-File audit package">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+            <span>Open Regulatory Compliance Memorandum (LtF)</span>
+          </button>
+          <button id="btnOpenCbomBanner" class="btn btn-secondary" title="Export CycloneDX 1.6 Cryptographic Bill of Materials">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <span>Export CBOM (CycloneDX 1.6)</span>
+          </button>
+          <button id="btnQuickCopyAttestation" class="btn btn-outline" title="Copy compliance attestation summary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span id="txtQuickCopyAttestation">Copy Regulatory Attestation</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9-Stage Pipeline Ribbon (Interactive!) -->
+    <section class="pipeline-section">
+      <div class="section-header">
+        <h2>Continuous Assurance Pipeline (Click any stage to inspect)</h2>
+        <span class="badge-stage-counter" id="pipelineStatusTag">All 9 Stages Verified</span>
+      </div>
+      <div class="pipeline-flow" id="pipelineFlow">
+        <button class="pipe-node active" data-stage="1" title="Click to inspect Firmware Ingestion">
+          <span class="node-num">01</span>
+          <span class="node-title">Firmware Release N</span>
+          <span class="node-sub" id="pNode1Sub">firmware-4.18.2.bin</span>
+        </button>
+        <div class="pipe-arrow">&rarr;</div>
+        <button class="pipe-node active" data-stage="2" title="Click to inspect Binary Analysis">
+          <span class="node-num">02</span>
+          <span class="node-title">Binary Analysis</span>
+          <span class="node-sub">Sections &amp; Heuristics</span>
+        </button>
+        <div class="pipe-arrow">&rarr;</div>
+        <button class="pipe-node active" data-stage="3" title="Click to inspect Crypto Evidence">
+          <span class="node-num">03</span>
+          <span class="node-title">Crypto Evidence</span>
+          <span class="node-sub" id="pNode3Sub">SHA256, P-256</span>
+        </button>
+        <div class="pipe-arrow">&rarr;</div>
+        <button class="pipe-node active" data-stage="4" title="Click to inspect Device Constraints">
+          <span class="node-num">04</span>
+          <span class="node-title">Device Constraints</span>
+          <span class="node-sub" id="pNode4Sub">Slot A/B: 448K</span>
+        </button>
+        <div class="pipe-arrow">&rarr;</div>
+        <button class="pipe-node active" data-stage="5" title="Click to inspect PQC Substitution">
+          <span class="node-num">05</span>
+          <span class="node-title">PQC Substitution</span>
+          <span class="node-sub" id="pNode5Sub">ML-DSA-65 Delta</span>
+        </button>
+        <div class="pipe-arrow">&rarr;</div>
+        <button class="pipe-node active" data-stage="6" title="Click to inspect Boot/Update Feasibility">
+          <span class="node-num">06</span>
+          <span class="node-title">Update Feasibility</span>
+          <span class="node-sub" id="pNode6Sub">Slot Pressure: 118%</span>
+        </button>
+        <div class="pipe-arrow">&rarr;</div>
+        <button class="pipe-node active" data-stage="7" title="Click to inspect Recertification Impact">
+          <span class="node-num">07</span>
+          <span class="node-title">Recertification</span>
+          <span class="node-sub" id="pNode7Sub">Letter-to-File</span>
+        </button>
+        <div class="pipe-arrow">&rarr;</div>
+        <button class="pipe-node highlight-node active" data-stage="8" title="Click to inspect Living Decision">
+          <span class="node-num">08</span>
+          <span class="node-title">Living Decision</span>
+          <span class="node-sub" id="pNode8Sub">With Constraints</span>
+        </button>
+        <div class="pipe-arrow">&rarr;</div>
+        <button class="pipe-node diff-node active" data-stage="9" title="Click to inspect Next Firmware Diff">
+          <span class="node-num">09</span>
+          <span class="node-title">Release N+1 Diff</span>
+          <span class="node-sub" id="pNode9Sub">Diff Detected</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Main Dashboard Grid -->
+    <main class="dashboard-grid">
+      <!-- Left Column: Living Decision & Evidence -->
+      <div class="grid-col left-col">
+        <!-- Living Decision Hero Card -->
+        <div class="card hero-decision-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="tag-label">LIVING STATE PRIMITIVE</span>
+              <h3 id="cardDeviceName">controller-x7 &bull; firmware-4.18.2.bin</h3>
+            </div>
+            <div class="diff-indicator" id="diffAlert">
+              <span class="indicator-icon">⚠️</span>
+              <span id="diffAlertText">Changed since previous release</span>
+            </div>
+          </div>
+          
+          <div class="hero-decision-body">
+            <div class="status-banner-box" id="statusBannerBox">
+              <div class="status-badge-lg" id="statusBadge">CAN_MIGRATE_WITH_CONSTRAINTS</div>
+              <div class="filing-badge-group">
+                <span class="filing-title">&ldquo;Without reopening the file&rdquo;:</span>
+                <div class="filing-badge-row">
+                  <span class="filing-badge" id="filingBadge">PREMARKET_UPDATE</span>
+                  <button id="btnHeroLtf" class="btn-ltf-mini" title="Open official Letter-to-File compliance memorandum">
+                    📄 View LtF Memorandum
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Identified Constraints Section (Interactive) -->
+            <div class="constraints-block">
+              <div class="constraints-header">
+                <div class="constraints-title-group">
+                  <h4>Active Migration Constraints (<span id="constraintCount">3</span>)</h4>
+                  <span class="subtext-dim">Click any constraint to diagnose &amp; jump to fix</span>
+                </div>
+                <button class="btn btn-sm btn-outline btn-interactive" id="btnDiagnoseAllConstraints" title="Run diagnostic analysis on all identified constraints">
+                  🔍 Diagnose All
+                </button>
+              </div>
+              <ul class="constraint-list" id="constraintList">
+                <!-- Dynamically populated with interactive cards -->
+              </ul>
+            </div>
+
+            <!-- Residual Risk Section -->
+            <div class="residual-risk-box">
+              <span class="risk-label">Residual Risk &amp; Compensating Controls:</span>
+              <p id="residualRiskText">
+                Migration is feasible subject to identified constraints. Compensating partition compression and staged bootloader modification must be validated in staging.
+              </p>
+            </div>
+
+            <!-- Automated Compensating Control Synthesis (Innovation - Interactive Patches) -->
+            <div class="remediation-box" id="remediationBox">
+              <div class="remediation-header">
+                <div class="remediation-title-group">
+                  <span class="remediation-title">🛠️ Self-Healing Migration Advisor (Patches)</span>
+                  <span class="badge-pill outline" id="remediationBadge">Automated</span>
+                </div>
+                <button class="btn btn-sm btn-outline btn-interactive" id="btnSimulateAllPatches" title="Simulate applying all compensating control patches">
+                  ⚡ Apply Virtual Fix
+                </button>
+              </div>
+              <div class="remediation-list" id="remediationList">
+                <!-- Dynamically populated with interactive patch cards -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Differential Timeline (Release N vs N+1) -->
+        <div class="card diff-timeline-card">
+          <div class="card-header">
+            <div>
+              <h3>Release History &amp; Differential Progression</h3>
+              <span class="card-meta">Click any previous build to inspect</span>
+            </div>
+            <button class="btn btn-sm btn-outline" id="btnRefreshHistory">Refresh</button>
+          </div>
+          <div class="timeline-container" id="timelineContainer">
+            <!-- Timeline items rendered by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Flash, RAM & Pipeline Evidence -->
+      <div class="grid-col right-col">
+        <!-- Memory & Flash Partition Map -->
+        <div class="card visualizer-card">
+          <div class="card-header">
+            <h3>Flash &amp; Memory Allocation Envelope</h3>
+            <span class="badge-status-ok" id="slotStatusBadge">Slot Pressure: 118.8%</span>
+          </div>
+          <div class="partition-visualizer">
+            <div class="bar-title">Hardware Partition Layout <span class="click-hint" style="color: var(--color-cyan); font-size: 0.7rem; font-weight: normal;">(Click segment to inspect offsets)</span>: <span id="txtFlashTotal">1,024 KB Total Flash</span></div>
+            <div class="flash-bar-track" id="trackPhysicalFlash">
+              <div class="bar-seg seg-bootloader bar-seg-interactive" id="segBootloader" style="width: 14%; cursor: pointer;" title="Click to inspect Bootloader Partition">
+                <span id="lblBootloader">Boot 64K</span>
+              </div>
+              <div class="bar-seg seg-slot-a bar-seg-interactive" id="segSlotA" style="width: 43%; cursor: pointer;" title="Click to inspect Slot A Active Partition">
+                <span id="lblSlotA">Slot A 448K</span>
+              </div>
+              <div class="bar-seg seg-slot-b bar-seg-interactive" id="segSlotB" style="width: 43%; cursor: pointer;" title="Click to inspect Slot B Staging Partition">
+                <span id="lblSlotB">Slot B 448K</span>
+              </div>
+            </div>
+
+            <div class="bar-title" style="margin-top: 1.25rem;">
+              Firmware + PQC Overhead vs Staging Slot B <span class="click-hint" style="color: var(--color-cyan); font-size: 0.7rem; font-weight: normal;">(Click to analyze pressure)</span>: <span id="txtSlotBCapacity">448 KiB Budget</span>
+            </div>
+            <div class="flash-bar-track" id="trackOtaSlot">
+              <div class="bar-seg seg-payload bar-seg-interactive" id="barPayload" style="width: 84%; cursor: pointer;" title="Click to inspect Base Firmware Image">
+                <span id="lblPayload">Base Image 505 KiB</span>
+              </div>
+              <div class="bar-seg seg-pqc-code bar-seg-interactive" id="barPqcCode" style="width: 4.5%; cursor: pointer;" title="Click to inspect PQC Overhead Delta">
+                <span id="lblPqcCode">+24K PQC</span>
+              </div>
+              <div class="bar-seg seg-overflow bar-seg-interactive" id="barOverflow" style="width: 11.5%; cursor: pointer;" title="Click to inspect Slot Overflow Deficit">
+                <span id="lblOverflow">+84 KiB OVERFLOW</span>
+              </div>
+            </div>
+
+            <!-- Key metrics row (Interactive Diagnostics) -->
+            <div class="metrics-row">
+              <div class="metric-box metric-box-interactive" id="boxHeaderMetric" style="cursor: pointer;" title="Click to inspect Firmware Header Envelope breakdown">
+                <span class="metric-val" id="valHeaderUsed">5,325 B</span>
+                <span class="metric-lbl">Header Consumed <span class="inline-diag-icon">🔍</span></span>
+                <span class="metric-sub" id="valHeaderBudget">of 1,024 B budget (EXCEEDED)</span>
+              </div>
+              <div class="metric-box metric-box-interactive" id="boxRamMetric" style="cursor: pointer;" title="Click to inspect Boot RAM Allocation breakdown">
+                <span class="metric-val" id="valRamWorking">30.0 KiB</span>
+                <span class="metric-lbl">Boot RAM Working Set <span class="inline-diag-icon">🔍</span></span>
+                <span class="metric-sub" id="valRamBudget">of 32.0 KiB available (91.6%)</span>
+              </div>
+              <div class="metric-box metric-box-interactive" id="boxRollbackMetric" style="cursor: pointer;" title="Click to inspect Dual-Bank Rollback State Machine">
+                <span class="metric-val" id="valDualBank">Dual-Bank</span>
+                <span class="metric-lbl">Rollback Protection <span class="inline-diag-icon">🔍</span></span>
+                <span class="metric-sub" id="valRollbackSafe">Rollback Safe (A/B Ping-Pong)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Evidence Pipeline Deep Dive with Filter Tabs -->
+        <div class="card evidence-card">
+          <div class="card-header">
+            <div>
+              <h3>Technical Evidence &amp; Verification Proof</h3>
+              <span class="card-meta">5-Layer Sub-System Diagnostics</span>
+            </div>
+            <button class="btn btn-sm btn-outline" id="exportProofBtn">Export Assurance Proof</button>
+          </div>
+
+          <!-- Filter Toolbar with Sub-System Categories and Status Buttons -->
+          <div class="evidence-toolbar">
+            <div class="evidence-tabs" id="evidenceCategoryTabs">
+              <button class="ev-tab active" data-category="all">All</button>
+              <button class="ev-tab" data-category="flash">Flash</button>
+              <button class="ev-tab" data-category="ram">RAM</button>
+              <button class="ev-tab" data-category="bootloader">Bootloader</button>
+              <button class="ev-tab" data-category="ota">OTA</button>
+              <button class="ev-tab" data-category="crypto">Crypto</button>
+            </div>
+            <div class="evidence-status-filters" id="evidenceStatusFilters">
+              <span class="status-filter-label">Filter Status:</span>
+              <button class="ev-status-btn active" data-status="all" id="btnStatusAll" title="Show all verification statuses">All</button>
+              <button class="ev-status-btn ev-status-pass" data-status="PASS" id="btnStatusPass" title="Filter to PASS verification findings">
+                <span class="status-symbol">✓</span> PASS <span class="ev-count-badge" id="countPassBadge">0</span>
+              </button>
+              <button class="ev-status-btn ev-status-fail" data-status="FAIL" id="btnStatusFail" title="Filter to FAIL verification findings">
+                <span class="status-symbol">✗</span> FAIL <span class="ev-count-badge" id="countFailBadge">0</span>
+              </button>
+              <button class="ev-status-btn ev-status-warn" data-status="WARN" id="btnStatusWarn" title="Filter to WARN verification findings">
+                <span class="status-symbol">⚠</span> WARN <span class="ev-count-badge" id="countWarnBadge">0</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="evidence-list" id="evidenceList">
+            <!-- Dynamic evidence items -->
+          </div>
+        </div>
+
+        <!-- Interactive CI/CD Simulation Console -->
+        <div class="card sim-console-card">
+          <div class="card-header">
+            <div>
+              <h3>Firmware CI/CD Simulation Workbench</h3>
+              <span class="card-meta">Simulate commits, binary bloat &amp; OTA payloads</span>
+            </div>
+          </div>
+          <div class="console-body">
+            <div class="input-row">
+              <div class="input-item">
+                <label for="simFwTag">Release Identifier / Git Tag</label>
+                <input type="text" id="simFwTag" class="form-input" value="firmware-4.18.2.bin">
+              </div>
+              <div class="input-item">
+                <label for="simSizeRange">Simulated Binary Size: <span id="simSizeVal" class="text-cyan">505</span> KiB</label>
+                <input type="range" id="simSizeRange" min="150" max="650" value="505" class="form-range">
+                <div class="range-sublabels">
+                  <span>150K (Fit)</span>
+                  <span>448K (Slot Limit)</span>
+                  <span>650K (Bloat)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Upload File Option -->
+            <div class="upload-row">
+              <div class="file-dropzone" id="fileDropzone">
+                <input type="file" id="fileInput" class="file-input-hidden" accept=".bin,.hex,.elf,.img">
+                <span class="drop-text">📁 Drop real firmware file (.bin / .hex) here or <span class="browse-link">browse</span></span>
+              </div>
+              <button id="btnSimTrigger" class="btn btn-accent">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Simulate CI/CD Webhook Release
+              </button>
+            </div>
+
+            <!-- 1-Click Test Real Firmware Binaries -->
+            <div class="sample-binaries-row">
+              <span class="sample-title">⚡ 1-Click Test Real Firmware Binaries:</span>
+              <div class="sample-chips" id="sampleChipsContainer">
+                <button class="chip-btn" data-family="controller-x7" data-fw="samples/controller-x7-bloat-505k.bin" data-policy="hybrid-pqc" data-size="505" title="505 KiB with ML-DSA-65 (+84 KiB slot overflow)">
+                  x7-bloat-505k.bin (Overflow)
+                </button>
+                <button class="chip-btn" data-family="controller-x7" data-fw="samples/controller-x7-clean-360k.bin" data-policy="hybrid-pqc" data-size="360" title="360 KiB clean certified baseline">
+                  x7-clean-360k.bin (Baseline)
+                </button>
+                <button class="chip-btn" data-family="grid-meter-nx5" data-fw="samples/grid-meter-v1.3.0.bin" data-policy="hybrid-pqc" data-size="120" title="120 KiB on 16 KiB RAM Cortex-M0+ (Redesign Required)">
+                  grid-meter-v1.3.0.bin (RAM Redesign)
+                </button>
+                <button class="chip-btn" data-family="aero-fcc-700" data-fw="samples/aero-fcc-v3.2.0.bin" data-policy="stateful-hash" data-size="1200" title="1.2 MB DO-178C DAL-A flight controller">
+                  aero-fcc-v3.2.0.bin (Avionics LMS)
+                </button>
+                <button class="chip-btn" data-family="acme-pump-m3-revc" data-fw="samples/custom-medical-pump-v2.6.bin" data-policy="ml-dsa-65" data-size="280" title="280 KiB FDA-524B infusion pump with mask ROM">
+                  pump-v2.6.bin (ROM Blocked)
+                </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- NIST PQC Algorithm Substitution Matrix (Innovation) -->
+        <div class="card algo-matrix-card">
+          <div class="card-header">
+            <div>
+              <h3>NIST PQC Algorithm Substitution Matrix</h3>
+              <span class="card-meta">Live side-by-side feasibility comparison across standardized NIST schemes</span>
+            </div>
+            <button class="btn btn-sm btn-outline" id="btnRefreshMatrix" title="Re-evaluate candidate algorithms for active hardware">↻ Refresh Matrix</button>
+          </div>
+          <div class="table-responsive" style="overflow-x: auto;">
+            <table class="algo-matrix-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-subtle); text-align: left; color: var(--text-dim); font-size: 0.72rem; text-transform: uppercase;">
+                  <th style="padding: 0.5rem 0.6rem;">Algorithm</th>
+                  <th style="padding: 0.5rem 0.6rem;">Standard</th>
+                  <th style="padding: 0.5rem 0.6rem;">Sig Size</th>
+                  <th style="padding: 0.5rem 0.6rem;">Code Delta</th>
+                  <th style="padding: 0.5rem 0.6rem;">Boot RAM</th>
+                  <th style="padding: 0.5rem 0.6rem;">Envelope Fit</th>
+                  <th style="padding: 0.5rem 0.6rem;">Score</th>
+                  <th style="padding: 0.5rem 0.6rem;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="matrixTableBody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+    </div><!-- End engineLayerSection -->
+
+    <!-- Modal for Assurance Proof Export -->
+    <div class="modal-overlay hidden" id="proofModal">
+      <div class="modal-window">
+        <div class="modal-header">
+          <h3>Living PQC Assurance Proof (Audit-Ready)</h3>
+          <button class="modal-close" id="closeModalBtn" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <pre id="proofJson"></pre>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="copyProofBtn">Copy to Clipboard</button>
+          <button class="btn btn-primary" id="doneModalBtn">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for Stage Inspector (When clicking pipeline nodes 01-09) -->
+    <div class="modal-overlay hidden" id="stageModal">
+      <div class="modal-window stage-modal-window">
+        <div class="modal-header">
+          <div>
+            <span class="stage-tag" id="stageModalTag">STAGE 01</span>
+            <h3 id="stageModalTitle">Firmware Release Ingestion</h3>
+          </div>
+          <button class="modal-close" id="closeStageModalBtn" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body" id="stageModalContent">
+          <!-- Dynamically populated per stage -->
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="btnPrevStage">&larr; Previous Stage</button>
+          <button class="btn btn-primary" id="btnNextStage">Next Stage &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for CycloneDX 1.6 CBOM Export -->
+    <div class="modal-overlay hidden" id="cbomModal">
+      <div class="modal-window">
+        <div class="modal-header">
+          <div>
+            <span class="stage-tag">STANDARDS COMPLIANT</span>
+            <h3>CycloneDX 1.6 Cryptographic Bill of Materials (CBOM)</h3>
+          </div>
+          <button class="modal-close" id="closeCbomModalBtn" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-intro" style="color: var(--text-dim); margin-bottom: 0.75rem; font-size: 0.85rem;">
+            Automated machine-readable CBOM compliant with <strong>NIST SP 800-227</strong> and <strong>CISA Post-Quantum Readiness</strong> guidelines:
+          </p>
+          <pre id="cbomJsonContent" style="background: var(--bg-surface); padding: 1rem; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.75rem; max-height: 380px; overflow-y: auto; color: var(--color-cyan); border: 1px solid var(--border-subtle);"></pre>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="copyCbomBtn">Copy CBOM JSON</button>
+          <button class="btn btn-primary" id="doneCbomModalBtn">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for Letter-to-File (LtF) Regulatory Dossier -->
+    <div class="modal-overlay hidden" id="ltfModal">
+      <div class="modal-window" style="max-width: 760px;">
+        <div class="modal-header">
+          <div>
+            <span class="stage-tag" style="background: rgba(16, 185, 129, 0.2); color: var(--state-can-migrate); border-color: rgba(16, 185, 129, 0.4);">ZERO REOPENED FILES</span>
+            <h3 id="ltfModalTitle">Regulatory Compliance Memorandum (Letter-to-File)</h3>
+          </div>
+          <button class="modal-close" id="closeLtfModalBtn" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-intro" style="color: var(--text-dim); margin-bottom: 0.75rem; font-size: 0.85rem;">
+            Official internal compliance package under <strong>FDA Section 524B</strong> / <strong>IEC 62443</strong> / <strong>ISO 21434</strong> attesting to non-significant cybersecurity delta:
+          </p>
+          <pre id="ltfMemoContent" style="background: var(--bg-surface); padding: 1.25rem; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.75rem; max-height: 420px; overflow-y: auto; color: var(--text-main); line-height: 1.5; border: 1px solid var(--border-subtle); white-space: pre-wrap;"></pre>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="copyLtfBtn">Copy Memorandum</button>
+          <button class="btn btn-primary" id="doneLtfModalBtn">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for Partition Diagnostics & Memory Envelope Details -->
+    <div class="modal-overlay hidden" id="envelopeModal">
+      <div class="modal-window" style="max-width: 760px;">
+        <div class="modal-header">
+          <div>
+            <span class="stage-tag" id="envelopeModalTag">HARDWARE TELEMETRY</span>
+            <h3 id="envelopeModalTitle">Partition Diagnostic &amp; Memory Envelope</h3>
+          </div>
+          <button class="modal-close" id="closeEnvelopeModalBtn" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body" id="envelopeModalBody">
+          <!-- Dynamically populated -->
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="btnEnvelopeAction">Copy Diagnostic Telemetry</button>
+          <button class="btn btn-primary" id="doneEnvelopeModalBtn">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for Regulatory Determination & Filing Decision Tree -->
+    <div class="modal-overlay hidden" id="filingDecisionModal">
+      <div class="modal-window" style="max-width: 780px;">
+        <div class="modal-header">
+          <div>
+            <span class="stage-tag" style="background: rgba(16, 185, 129, 0.2); color: var(--state-can-migrate); border-color: rgba(16, 185, 129, 0.4);">REGULATORY DETERMINATION</span>
+            <h3 id="filingDecisionModalTitle">Filing Decision Tree &amp; Zero-Reopen Justification</h3>
+          </div>
+          <button class="modal-close" id="closeFilingDecisionModalBtn" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body" id="filingDecisionModalBody">
+          <!-- Dynamically populated -->
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="btnSimulateAuditRun">⚡ Run Audit Simulation</button>
+          <button class="btn btn-outline" id="btnCopyFilingAttestation">Copy Legal Attestation</button>
+          <button class="btn btn-primary" id="doneFilingDecisionModalBtn">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for Secure Boot Integrity & RoT Dual Signature Chain -->
+    <div class="modal-overlay hidden" id="rotIntegrityModal">
+      <div class="modal-window" style="max-width: 780px;">
+        <div class="modal-header">
+          <div>
+            <span class="stage-tag" style="background: rgba(6, 182, 212, 0.2); color: var(--color-cyan); border-color: rgba(6, 182, 212, 0.4);">ROOT OF TRUST INTEGRITY</span>
+            <h3 id="rotIntegrityModalTitle">Secure Boot Integrity &amp; Dual-Signature Chain</h3>
+          </div>
+          <button class="modal-close" id="closeRotIntegrityModalBtn" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body" id="rotIntegrityModalBody">
+          <!-- Dynamically populated -->
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="btnSimulateBootPath">⚡ Simulate Boot Verification</button>
+          <button class="btn btn-outline" id="btnCopyRotTelemetry">Copy RoT Telemetry</button>
+          <button class="btn btn-primary" id="doneRotIntegrityModalBtn">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for Audit Traceability Matrix -->
+    <div class="modal-overlay hidden" id="traceMatrixModal">
+      <div class="modal-window" style="max-width: 820px;">
+        <div class="modal-header">
+          <div>
+            <span class="stage-tag" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border-color: rgba(168, 85, 247, 0.4);">AUDIT TRACEABILITY</span>
+            <h3 id="traceMatrixModalTitle">100% Deterministic Standards Traceability Matrix</h3>
+          </div>
+          <button class="modal-close" id="closeTraceMatrixModalBtn" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body" id="traceMatrixModalBody">
+          <!-- Dynamically populated -->
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="btnExportTraceMatrixJson">Export JSON Matrix</button>
+          <button class="btn btn-outline" id="btnCopyTraceTable">Copy Table</button>
+          <button class="btn btn-primary" id="doneTraceMatrixModalBtn">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for Registering Custom Device Family -->
+    <div class="modal-overlay hidden" id="addFamilyModal">
+      <div class="modal-window">
+        <div class="modal-header">
+          <div>
+            <span class="stage-tag">HARDWARE SPECIFICATION</span>
+            <h3>Register Custom Device Family</h3>
+          </div>
+          <button class="modal-close" id="closeAddFamilyModalBtn" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="formAddFamily" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div class="form-group" style="grid-column: span 2;">
+              <label for="newFamilyId" style="display:block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.25rem;">Family Identifier (Slug)</label>
+              <input type="text" id="newFamilyId" class="form-input" required placeholder="e.g. drone-esc-v2" style="width: 100%;">
+            </div>
+            <div class="form-group">
+              <label for="newVendor" style="display:block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.25rem;">Vendor / OEM</label>
+              <input type="text" id="newVendor" class="form-input" required placeholder="e.g. Skydio Avionics" style="width: 100%;">
+            </div>
+            <div class="form-group">
+              <label for="newModule" style="display:block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.25rem;">Product Name</label>
+              <input type="text" id="newModule" class="form-input" required placeholder="e.g. ESC Pro 48V" style="width: 100%;">
+            </div>
+            <div class="form-group">
+              <label for="newSoc" style="display:block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.25rem;">SoC Architecture</label>
+              <input type="text" id="newSoc" class="form-input" required placeholder="e.g. STM32H753 @ 480MHz" style="width: 100%;">
+            </div>
+            <div class="form-group">
+              <label for="newRegime" style="display:block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.25rem;">Regulatory Regime</label>
+              <select id="newRegime" class="form-select" style="width: 100%;">
+                <option value="IEC-62443">IEC-62443 (Industrial)</option>
+                <option value="FDA-524B">FDA-524B (Medical)</option>
+                <option value="ISO-21434">ISO-21434 (Automotive)</option>
+                <option value="FAA-DO-178C">FAA-DO-178C (Aerospace)</option>
+                <option value="ANSI-C12.22">ANSI-C12.22 (Smart Grid)</option>
+                <option value="EU-RED">EU-RED (Wireless IoT)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="newFlashTotal" style="display:block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.25rem;">Total Flash (KiB)</label>
+              <input type="number" id="newFlashTotal" class="form-input" value="1024" style="width: 100%;">
+            </div>
+            <div class="form-group">
+              <label for="newSlotB" style="display:block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.25rem;">OTA Staging Slot B (KiB)</label>
+              <input type="number" id="newSlotB" class="form-input" value="448" style="width: 100%;">
+            </div>
+            <div class="form-group">
+              <label for="newRamBoot" style="display:block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.25rem;">Usable RAM at Boot (KiB)</label>
+              <input type="number" id="newRamBoot" class="form-input" value="32" style="width: 100%;">
+            </div>
+            <div class="form-group">
+              <label for="newBootloader" style="display:block; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.25rem;">Bootloader Name</label>
+              <input type="text" id="newBootloader" class="form-input" value="MCUboot-Custom" style="width: 100%;">
+            </div>
+            <div class="form-group" style="grid-column: span 2; display: flex; gap: 1.5rem; margin-top: 0.5rem;">
+              <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; cursor: pointer;">
+                <input type="checkbox" id="newDualBank" checked> Dual-Bank Safe (A/B Ping-Pong)
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; cursor: pointer;">
+                <input type="checkbox" id="newRomLock"> Root Verification Burned in ROM
+              </label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="cancelAddFamilyBtn">Cancel</button>
+          <button class="btn btn-primary" id="saveAddFamilyBtn">Register Hardware Family</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FULL-SCREEN PLATFORM LOCK GATE & COMMERCIAL PAYWALL -->
+    <div class="platform-lock-gate" id="platformLockGate">
+      <div class="lock-gate-box">
+        <!-- MODE 1: Authentication Required (Sign In / Sign Up) -->
+        <div id="lockGateAuthPanel">
+          <div class="lock-gate-header">
+            <div class="lock-icon-glow">🔒</div>
+            <span class="stage-tag" style="background: rgba(6, 182, 212, 0.15); color: var(--color-cyan); border-color: rgba(6, 182, 212, 0.35); margin-bottom: 0.6rem; display: inline-block;">
+              RESTRICTED OEM ACCESS &bull; CONTINUOUS PQC ASSURANCE
+            </span>
+            <h2>System Locked: Authentication Required</h2>
+            <p class="lock-subtext">
+              Continuous post-quantum updateability telemetry, binary crypto extraction, and regulatory dossiers are strictly protected. Sign in or register to access the platform.
+            </p>
+          </div>
+
+          <div class="lock-gate-tabs">
+            <button type="button" class="lock-gate-tab-btn active" id="tabBtnSignIn">Sign In</button>
+            <button type="button" class="lock-gate-tab-btn" id="tabBtnSignUp">Register OEM Account</button>
+            <button type="button" class="lock-gate-tab-btn" id="tabBtnForgot" onclick="window.openForgotPassword(event)" style="display: none;">Reset Password</button>
+          </div>
+
+          <!-- Sign In Form Panel -->
+          <form class="lock-gate-form" id="formSignIn">
+            <div class="form-group">
+              <label for="signInEmail">Email ID</label>
+              <input type="email" id="signInEmail" class="form-input" required placeholder="name@company.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+              <div class="label-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                <label for="signInPassword" style="margin-bottom: 0;">Password</label>
+                <button type="button" id="linkForgotPassword" onclick="window.openForgotPassword(event)" style="font-size: 0.78rem; color: var(--color-cyan); text-decoration: underline; background: transparent; border: none; padding: 0; cursor: pointer; font-weight: 500;">Forgot password?</button>
+              </div>
+              <input type="password" id="signInPassword" class="form-input" required placeholder="Enter password" autocomplete="current-password">
+            </div>
+            <div class="form-group-checkbox" style="display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0;">
+              <input type="checkbox" id="signInRemember" checked>
+              <label for="signInRemember" style="font-size: 0.8rem; color: var(--text-dim); cursor: pointer;">Remember this session on this workstation</label>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block btn-auth-submit" id="btnSubmitSignIn">
+              <span>Sign In &amp; Unlock Platform</span>
+            </button>
+            <div class="auth-switch-prompt">
+              <span>New customer?</span>
+              <button type="button" class="btn-text-link" id="btnSwitchToSignUp">Create OEM Account</button>
+            </div>
+          </form>
+
+          <!-- Sign Up Form Panel (Hidden by default) -->
+          <form class="lock-gate-form hidden" id="formSignUp">
+            <div class="form-group">
+              <label for="signUpEmail">Email ID</label>
+              <input type="email" id="signUpEmail" class="form-input" required placeholder="name@company.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label for="signUpMobile">Mobile Number</label>
+              <input type="tel" id="signUpMobile" class="form-input" required placeholder="+1 (555) 000-0000" autocomplete="tel">
+            </div>
+            <div class="form-group">
+              <label for="signUpPassword">Password</label>
+              <input type="password" id="signUpPassword" class="form-input" required placeholder="Create secure password" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+              <label for="signUpOrg">Organization / OEM Name</label>
+              <input type="text" id="signUpOrg" class="form-input" placeholder="e.g. Acme Industrial / AutoNet Mobility">
+            </div>
+            <div class="form-group">
+              <label for="signUpPlanSelect">Commercial Plan Tier</label>
+              <select id="signUpPlanSelect" class="form-select" style="width: 100%;">
+                <option value="Starter">Starter — 1–3 Device Families ($1,500/mo)</option>
+                <option value="Professional" selected>Professional — Up to 10 Device Families ($4,000/mo)</option>
+                <option value="Enterprise">Enterprise — Up to 30 Device Families ($10,000/mo)</option>
+                <option value="Enterprise+">Enterprise+ — 100+ Device Families ($25,000+/mo)</option>
+              </select>
+            </div>
+            <div class="form-group-checkbox" style="display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0;">
+              <input type="checkbox" id="signUpAgree" required checked>
+              <label for="signUpAgree" style="font-size: 0.78rem; color: var(--text-dim); cursor: pointer;">
+                I agree to the OEM License Agreement &amp; Cryptographic Traceability Policies
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block btn-auth-submit" id="btnSubmitSignUp">
+              <span>Register &amp; Proceed to Commercial Plan</span>
+            </button>
+            <div class="auth-switch-prompt">
+              <span>Already registered?</span>
+              <button type="button" class="btn-text-link" id="btnSwitchToSignIn">Sign In</button>
+            </div>
+          </form>
+
+          <!-- Forgot / Reset Password Form Panel (Hidden by default) -->
+          <form class="lock-gate-form hidden" id="formForgotPassword" onsubmit="return window.handleForgotPasswordSubmit(event)">
+            <div style="background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.25); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 0.5rem; font-size: 0.8rem; line-height: 1.45; color: var(--text-main);">
+              <strong style="color: var(--color-cyan);">Reset Account Password</strong><br>
+              Enter your registered account email and specify a new secure password.
+            </div>
+            <div class="form-group">
+              <label for="forgotEmail">Registered Email ID</label>
+              <input type="email" id="forgotEmail" class="form-input" required placeholder="name@company.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label for="forgotNewPassword">New Password</label>
+              <input type="password" id="forgotNewPassword" class="form-input" required placeholder="Enter new password" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+              <label for="forgotConfirmPassword">Confirm New Password</label>
+              <input type="password" id="forgotConfirmPassword" class="form-input" required placeholder="Confirm new password" autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block btn-auth-submit" id="btnSubmitForgotPassword">
+              <span>Reset &amp; Save Password</span>
+            </button>
+            <div class="auth-switch-prompt">
+              <button type="button" class="btn-text-link" id="btnBackToSignInFromForgot" onclick="window.backToSignIn(event)">&larr; Back to Sign In</button>
+            </div>
+          </form>
+
+          <!-- Customer Support & Enquiry Box -->
+          <div class="auth-support-box">
+            <div class="support-box-header">
+              <span class="support-icon">🎧</span>
+              <span class="support-title">Customer Support &amp; Technical Enquiry</span>
+            </div>
+            <p class="support-desc">For enterprise fleet licensing, custom silicon constraints, or deployment support:</p>
+            <div class="support-contact-row">
+              <span class="contact-lbl">Contact:</span>
+              <a href="mailto:bjtmusic12@gmail.com" class="support-email-link" id="authSupportEmail">bjtmusic12@gmail.com</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODE 2: Commercial Paywall Gate (Signed in customer who has not paid yet) -->
+        <div id="lockGatePaywallPanel" class="hidden">
+          <div class="lock-gate-header">
+            <div class="lock-icon-glow" style="border-color: var(--state-constraints); box-shadow: 0 0 24px var(--state-constraints-glow);">💳</div>
+            <span class="stage-tag" style="background: rgba(245, 158, 11, 0.15); color: var(--state-constraints); border-color: rgba(245, 158, 11, 0.35); margin-bottom: 0.6rem; display: inline-block;">
+              COMMERCIAL LICENSE REQUIRED &bull; PAYMENT PENDING
+            </span>
+            <h2>Active Commercial Subscription Required</h2>
+            <p class="lock-subtext">
+              Customers cannot access the Continuous PQC Updateability platform without an active paid subscription. Please select your plan and complete payment below.
+            </p>
+          </div>
+
+          <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-sm); padding: 0.85rem 1.1rem; margin-bottom: 1.25rem; font-size: 0.82rem; line-height: 1.5;">
+            <div>Signed in as: <strong id="paywallUserEmail" style="color: #fff; font-family: var(--font-mono);"></strong></div>
+            <div>Selected Tier: <strong id="paywallUserPlan" style="color: var(--color-cyan);"></strong> &bull; License Status: <span style="color: var(--state-blocked); font-weight: 700;">Unpaid (Locked)</span></div>
+          </div>
+
+          <!-- Quick Stripe Checkout Cards -->
+          <div class="paywall-plans-grid">
+            <div class="paywall-plan-card">
+              <div class="paywall-plan-title">
+                <span>Starter</span>
+                <span class="paywall-plan-price">$1,500/mo</span>
+              </div>
+              <p class="paywall-plan-desc">1–3 Device Families. Automated CI/CD analysis &amp; CycloneDX CBOM.</p>
+              <a href="https://buy.stripe.com/test_bJe7sDdBQ9y50azbwy2oE0m" target="_blank" rel="noopener noreferrer" class="paywall-btn-stripe" data-plan="Starter">
+                <span>Pay via Stripe &bull; $1,500</span>
+              </a>
+            </div>
+
+            <div class="paywall-plan-card featured">
+              <div class="paywall-plan-title">
+                <span>Professional</span>
+                <span class="paywall-plan-price">$4,000/mo</span>
+              </div>
+              <p class="paywall-plan-desc">Up to 10 Families. NIST Algorithm Matrix &amp; Self-Healing Patches.</p>
+              <a href="https://buy.stripe.com/test_6oUcMX41g25De1p6ce2oE0n" target="_blank" rel="noopener noreferrer" class="paywall-btn-stripe" data-plan="Professional">
+                <span>Pay via Stripe &bull; $4,000</span>
+              </a>
+            </div>
+
+            <div class="paywall-plan-card">
+              <div class="paywall-plan-title">
+                <span>Enterprise</span>
+                <span class="paywall-plan-price">$10,000/mo</span>
+              </div>
+              <p class="paywall-plan-desc">Up to 30 Families. Zero-Reopen Letter-to-File &amp; FDA/ISO Traceability.</p>
+              <a href="https://buy.stripe.com/test_14AcMXapE39He1p9oq2oE0o" target="_blank" rel="noopener noreferrer" class="paywall-btn-stripe" data-plan="Enterprise">
+                <span>Pay via Stripe &bull; $10,000</span>
+              </a>
+            </div>
+
+            <div class="paywall-plan-card">
+              <div class="paywall-plan-title">
+                <span>Enterprise+</span>
+                <span class="paywall-plan-price">$25,000+/mo</span>
+              </div>
+              <p class="paywall-plan-desc">100+ Families. Custom silicon envelopes &amp; regulatory defense.</p>
+              <a href="https://buy.stripe.com/test_cNifZ90P425D2iH4462oE0p" target="_blank" rel="noopener noreferrer" class="paywall-btn-stripe" data-plan="Enterprise+">
+                <span>Pay via Stripe &bull; $25,000+</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="paywall-verification-box">
+            <span style="font-size: 0.82rem; font-weight: 600; color: #fff;">Completed Stripe Payment?</span>
+            <p style="font-size: 0.76rem; color: var(--text-dim); margin: 0;">
+              Once your payment checkout completes on Stripe, click below to activate your commercial license and unlock the platform:
+            </p>
+            <button type="button" class="btn btn-primary btn-block" id="btnConfirmPaywallPayment" style="background: linear-gradient(135deg, #10b981, #059669); border-color: #10b981;">
+              <span>✓ Confirm Payment &amp; Unlock Platform</span>
+            </button>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+            <button type="button" class="btn btn-outline" id="btnPaywallLogout" style="font-size: 0.8rem; padding: 0.5rem 0.9rem;">
+              Sign Out / Switch Account
+            </button>
+            <div style="font-size: 0.75rem; color: var(--text-dim);">
+              Support: <a href="mailto:bjtmusic12@gmail.com" style="color: var(--color-cyan); text-decoration: none;">bjtmusic12@gmail.com</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Toast Notification -->
+    <div class="toast-container" id="toastContainer"></div>
+  </div>
+
+  <script src="app.js?v=6.4.0&ts=202609292015"></script>
+</body>
+</html>

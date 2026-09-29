@@ -328,17 +328,30 @@ class AssuranceAPIHandler(BaseHTTPRequestHandler):
         # -------------------------------------------------------------
         # Static Assets
         # -------------------------------------------------------------
-        if path == "/" or path == "/index.html":
-            file_path = WEB_DIR / "index.html"
-        else:
-            rel_path = path.lstrip("/")
-            file_path = WEB_DIR / rel_path
+        rel_path = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
+        
+        possible_dirs = [
+            PROJECT_ROOT / "public",
+            PROJECT_ROOT / "web",
+            Path(__file__).resolve().parent.parent / "public",
+            Path(__file__).resolve().parent.parent / "web",
+            Path("/var/task/public"),
+            Path("/var/task/web"),
+            Path("/var/task"),
+        ]
 
-        if file_path.exists() and file_path.is_file():
-            mime_type, _ = mimetypes.guess_type(str(file_path))
+        target_file = None
+        for d in possible_dirs:
+            candidate = d / rel_path
+            if candidate.exists() and candidate.is_file():
+                target_file = candidate
+                break
+
+        if target_file:
+            mime_type, _ = mimetypes.guess_type(str(target_file))
             content_type = mime_type or "text/plain"
             self._set_headers(200, content_type=content_type)
-            self.wfile.write(file_path.read_bytes())
+            self.wfile.write(target_file.read_bytes())
         else:
             self._set_headers(404, "application/json")
             self.wfile.write(json.dumps({"error": "Resource not found"}).encode("utf-8"))
