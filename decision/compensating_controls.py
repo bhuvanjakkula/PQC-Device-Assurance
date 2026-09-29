@@ -22,44 +22,61 @@ class CompensatingControlAdvisor:
         hw = family_specs.get("hardware", {})
         boot = family_specs.get("boot", {})
 
-        # 1. Evaluate OTA slot bloat / overflow
-        slot_overflow = any("exceeds available flash" in c for c in constraints)
-        if slot_overflow:
-            recommendations.append({
-                "id": "REMED-FLASH-01",
-                "title": "NIST Algorithm Substitution (ML-DSA-44 or LMS)",
-                "category": "Algorithm Optimization",
-                "impact": "Reclaims up to 16 KiB flash code space and 889 B signature envelope",
-                "urgency": "High",
-                "technical_details": (
-                    "ML-DSA-65 signature requires 3,309 bytes and 24.5 KiB verifier code. "
-                    "Substituting with NIST Level 2 ML-DSA-44 (2,420 B sig, 18.4 KiB code) or "
-                    "RFC 8554 LMS-SHA256 (1,864 B sig, 8.1 KiB code) brings total image size within budget."
-                ),
-                "remediation_patch": "target_policy: fips-204 (ML-DSA-44) OR stateful-hash (LMS-SHA256)",
-            })
+        # 1. Evaluate OTA slot bloat / algorithm optimization (Always available for PQC trade-offs)
+        recommendations.append({
+            "id": "REMED-FLASH-01",
+            "title": "NIST Algorithm Substitution (ML-DSA-44 or LMS)",
+            "category": "Algorithm Optimization",
+            "impact": "Reclaims up to 16 KiB flash code space and 889 B signature envelope",
+            "urgency": "High",
+            "technical_details": (
+                "ML-DSA-65 signature requires 3,309 bytes and 24.5 KiB verifier code. "
+                "Substituting with NIST Level 2 ML-DSA-44 (2,420 B sig, 18.4 KiB code) or "
+                "RFC 8554 LMS-SHA256 (1,864 B sig, 8.1 KiB code) brings total image size within budget."
+            ),
+            "remediation_patch": "target_policy: fips-204 (ML-DSA-44) OR stateful-hash (LMS-SHA256)",
+        })
 
-            recommendations.append({
-                "id": "REMED-FLASH-02",
-                "title": "Partition Table Re-allocation & Staging Asset Compression",
-                "category": "Flash Partitioning",
-                "impact": "Reallocates 48 KiB from diagnostic log partition to Slot B",
-                "urgency": "Medium",
-                "technical_details": (
-                    "Current partition layout allocates non-critical log space. By updating the DTS/dtsi "
-                    "flash map, Slot B can be expanded by 48 KiB while applying LZ4 compression to "
-                    "non-executable static telemetry tables."
-                ),
-                "remediation_patch": (
-                    "/* device-tree partition patch */\n"
-                    "slot1_partition: partition@70000 {\n"
-                    "    reg = <0x00070000 0x0007c000>; /* Expanded by 48 KiB */\n"
-                    "};"
-                ),
-            })
+        recommendations.append({
+            "id": "REMED-FLASH-02",
+            "title": "Partition Table Re-allocation & Staging Asset Compression",
+            "category": "Flash Partitioning",
+            "impact": "Reallocates 48 KiB from diagnostic log partition to Slot B",
+            "urgency": "Medium",
+            "technical_details": (
+                "Current partition layout allocates non-critical log space. By updating the DTS/dtsi "
+                "flash map, Slot B can be expanded by 48 KiB while applying LZ4 compression to "
+                "non-executable static telemetry tables."
+            ),
+            "remediation_patch": (
+                "/* device-tree partition patch */\n"
+                "slot1_partition: partition@70000 {\n"
+                "    reg = <0x00070000 0x0007c000>; /* Expanded by 48 KiB */\n"
+                "};"
+            ),
+        })
 
-        # 2. Evaluate Boot-time RAM exhaustion
-        ram_exceeded = any("exceeds boot-time RAM" in c for c in constraints)
+        # 2. Evaluate Bootloader verification path modifications (SPL hook)
+        recommendations.append({
+            "id": "REMED-BOOT-01",
+            "title": "Second-Stage Bootloader (SPL) Verification Hook",
+            "category": "Boot Architecture",
+            "impact": "Preserves immutable primary stage while delegating PQC verification to mutable SPL",
+            "urgency": "Medium",
+            "technical_details": (
+                "Primary stage bootloader verifies SPL using certified classical key (ECDSA-P256). "
+                "The SPL contains the quantum-safe verifier library, verifying the OS kernel before execution. "
+                "Ensures zero risk to first-stage recovery bootloader."
+            ),
+            "remediation_patch": (
+                "// mcuboot / spl hook config\n"
+                "#define MCUBOOT_SIGN_PQC_HYBRID 1\n"
+                "#define MCUBOOT_VALIDATE_SECONDARY_SLOT 1"
+            ),
+        })
+
+        # 3. Evaluate Boot-time RAM exhaustion
+        ram_exceeded = any("exceeds boot-time RAM" in c or "ram" in c.lower() for c in constraints)
         if ram_exceeded or decision.status == MigrationStatus.REDESIGN_REQUIRED:
             recommendations.append({
                 "id": "REMED-RAM-01",
@@ -73,27 +90,6 @@ class CompensatingControlAdvisor:
                     "allows verification on microcontrollers with as little as 6 KiB usable SRAM."
                 ),
                 "remediation_patch": "#define PQC_STREAMING_VERIFY_CHUNK_SIZE 512\n#define USE_RFC8554_LMS_LIGHTWEIGHT 1",
-            })
-
-        # 3. Evaluate Bootloader verification path modifications
-        boot_mod = any("Bootloader verification path requires modification" in c for c in constraints)
-        if boot_mod:
-            recommendations.append({
-                "id": "REMED-BOOT-01",
-                "title": "Second-Stage Bootloader (SPL) Verification Hook",
-                "category": "Boot Architecture",
-                "impact": "Preserves immutable primary stage while delegating PQC verification to mutable SPL",
-                "urgency": "Medium",
-                "technical_details": (
-                    "Primary stage bootloader verifies SPL using certified classical key (ECDSA-P256). "
-                    "The SPL contains the quantum-safe verifier library, verifying the OS kernel before execution. "
-                    "Ensures zero risk to first-stage recovery bootloader."
-                ),
-                "remediation_patch": (
-                    "// mcuboot / spl hook config\n"
-                    "#define MCUBOOT_SIGN_PQC_HYBRID 1\n"
-                    "#define MCUBOOT_VALIDATE_SECONDARY_SLOT 1"
-                ),
             })
 
         # 4. Evaluate ROM lock (Blocked state)
@@ -111,18 +107,6 @@ class CompensatingControlAdvisor:
                     "Firmware delivery tunnel is quantum-shielded before terminal verification."
                 ),
                 "remediation_patch": "Enforce Quantum-Safe Mutual TLS (mTLS) with ML-KEM-768 on Edge Gateway Proxy",
-            })
-
-        # Default fallback if clean
-        if not recommendations:
-            recommendations.append({
-                "id": "REMED-CLEAN-01",
-                "title": "All Hardware Margins Verified Clear",
-                "category": "Status Healthy",
-                "impact": "Zero remediation needed. Proceed with staged deployment.",
-                "urgency": "Info",
-                "technical_details": "Flash staging slot, RAM working sets, and bootloader headers meet all post-quantum criteria.",
-                "remediation_patch": "No patch required. Clear to ship update.",
             })
 
         return recommendations
