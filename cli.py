@@ -169,8 +169,8 @@ def main():
 
     # serve command
     p_serve = subparsers.add_parser("serve", help="Start the API and Web UI server")
-    p_serve.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
-    p_serve.add_argument("--port", type=int, default=8000, help="Bind port (default: 8000)")
+    p_serve.add_argument("--host", default=os.environ.get("HOST", "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1"), help="Bind host (default: 0.0.0.0 when PORT is set, else 127.0.0.1)")
+    p_serve.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)), help="Bind port (default: $PORT or 8000)")
     p_serve.set_defaults(func=cmd_serve)
 
     args = parser.parse_args()

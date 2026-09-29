@@ -5,7 +5,7 @@ services:
     plan: starter
     region: oregon
     buildCommand: ""
-    startCommand: python cli.py serve --port $PORT
+    startCommand: python cli.py serve
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.8
