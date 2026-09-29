@@ -1212,6 +1212,57 @@ body {
   margin-top: 0.35rem;
 }
 
+.patch-active-pill {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--state-can-migrate);
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  animation: pulse-border 2s infinite ease-in-out;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 4px rgba(16, 185, 129, 0.2); }
+  50% { border-color: rgba(16, 185, 129, 0.9); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
+}
+
+.btn-applied-active {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  border-color: #10b981 !important;
+  color: #fff !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+  font-weight: 700 !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-applied-active:hover {
+  background: linear-gradient(135deg, #059669, #047857) !important;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.6);
+  transform: translateY(-1px);
+}
+
+.btn-inspect-patch,
+.btn-verify-patch {
+  border-color: rgba(6, 182, 212, 0.4) !important;
+  color: var(--color-cyan) !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-inspect-patch:hover,
+.btn-verify-patch:hover {
+  background: rgba(6, 182, 212, 0.15) !important;
+  border-color: var(--color-cyan) !important;
+  color: #fff !important;
+  transform: translateY(-1px);
+}
+
 /* ==========================================================================
    Visualizer: Flash & Memory Bars (Interactive)
    ========================================================================== */
