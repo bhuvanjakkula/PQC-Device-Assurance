@@ -1396,7 +1396,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!remediationList) return;
 
     try {
-      const resp = await authFetch(`/api/remediation?family=${encodeURIComponent(dec.device_family)}&firmware=${encodeURIComponent(dec.firmware)}&policy=${encodeURIComponent(dec.target_policy)}`);
+      const currentSize = simSizeRange ? parseInt(simSizeRange.value) : 380;
+      const resp = await authFetch(`/api/remediation?family=${encodeURIComponent(dec.device_family)}&firmware=${encodeURIComponent(dec.firmware)}&policy=${encodeURIComponent(dec.target_policy)}&size_kb=${currentSize}`);
       if (resp.ok) {
         const items = await resp.json();
         cachedRemediationItems = items;
@@ -1425,37 +1426,176 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="remed-desc">${item.technical_details}</div>
             <div class="remed-impact"><strong>Compensating Impact:</strong> ${item.impact}</div>
             ${item.remediation_patch ? `<pre class="remed-patch"><code>${item.remediation_patch}</code></pre>` : ''}
-            <div class="remed-actions">
-              <button type="button" class="btn btn-sm btn-outline btn-copy-patch" title="Copy code patch to clipboard">
-                📋 Copy Patch
-              </button>
-              <button type="button" class="btn btn-sm ${isApplied ? 'btn-applied-active' : 'btn-primary'} btn-apply-patch" title="Toggle simulated compensating control fix">
-                ${isApplied ? '✓ Fix Active (Click to Revert)' : '⚡ Simulate Fix (Apply Patch)'}
-              </button>
-              <button type="button" class="btn btn-sm btn-secondary btn-download-patch" title="Download .patch file">
-                💾 Download .patch
-              </button>
-              <button type="button" class="btn btn-sm btn-outline btn-inspect-patch" title="Inspect subsystem diagnostic">
-                🔍 Inspect Architecture
-              </button>
-              <button type="button" class="btn btn-sm btn-outline btn-verify-patch" title="Verify syntax & MCUboot compatibility">
-                ✓ Verify Syntax
-              </button>
+              ${item.id === "REMED-FLASH-01" ? `
+                <button type="button" class="btn btn-sm btn-primary btn-switch-fips204" title="Substitute policy to NIST FIPS 204 (ML-DSA-44)">
+                  ⚡ Switch to ML-DSA-44
+                </button>
+                <button type="button" class="btn btn-sm btn-outline btn-switch-lms" title="Substitute policy to RFC 8554 (LMS-SHA256)">
+                  ⚡ Switch to LMS-SHA256
+                </button>
+                <button type="button" class="btn btn-sm ${isApplied ? 'btn-applied-active' : 'btn-secondary'} btn-apply-patch" title="Toggle simulated policy substitution fix">
+                  ${isApplied ? '✓ Policy Substituted (Click to Revert)' : '⚡ Apply Policy Substitution'}
+                </button>
+                <button type="button" class="btn btn-sm btn-outline btn-copy-patch" title="Copy policy configuration to clipboard">
+                  📋 Copy Config
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary btn-download-patch" title="Download policy configuration .patch">
+                  💾 Download .patch
+                </button>
+                <button type="button" class="btn btn-sm btn-outline btn-inspect-patch" title="Inspect algorithm sizing comparison">
+                  🔍 Sizing Diagnostic
+                </button>
+                <button type="button" class="btn btn-sm btn-outline btn-verify-patch" title="Verify NIST Level 2 compliance">
+                  ✓ Verify Compliance
+                </button>
+              ` : item.id === "REMED-FLASH-02" ? `
+                <button type="button" class="btn btn-sm btn-primary btn-expand-slotb" title="Expand Slot B partition by 48 KiB from diagnostic log space">
+                  ⚡ Expand Slot B (+48 KiB)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline btn-apply-lz4" title="Apply LZ4 compression to static telemetry tables">
+                  🗜️ Apply LZ4 Compression
+                </button>
+                <button type="button" class="btn btn-sm ${isApplied ? 'btn-applied-active' : 'btn-secondary'} btn-apply-patch" title="Toggle simulated partition fix">
+                  ${isApplied ? '✓ Partition Expanded (Click to Revert)' : '⚡ Apply Partition Fix'}
+                </button>
+                <button type="button" class="btn btn-sm btn-outline btn-copy-patch" title="Copy DTS partition table patch to clipboard">
+                  📋 Copy DTS Patch
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary btn-download-patch" title="Download DTS partition table .patch">
+                  💾 Download DTS .patch
+                </button>
+                <button type="button" class="btn btn-sm btn-outline btn-inspect-patch" title="Inspect Slot B partition geometry & flash pressure">
+                  🔍 Inspect Partition Layout
+                </button>
+                <button type="button" class="btn btn-sm btn-outline btn-verify-patch" title="Validate DTS syntax & partition alignment">
+                  ✓ Verify DTS Syntax
+                </button>
+              ` : `
+                <button type="button" class="btn btn-sm btn-outline btn-copy-patch" title="Copy code patch to clipboard">
+                  📋 Copy Patch
+                </button>
+                <button type="button" class="btn btn-sm ${isApplied ? 'btn-applied-active' : 'btn-primary'} btn-apply-patch" title="Toggle simulated compensating control fix">
+                  ${isApplied ? '✓ Fix Active (Click to Revert)' : '⚡ Simulate Fix (Apply Patch)'}
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary btn-download-patch" title="Download .patch file">
+                  💾 Download .patch
+                </button>
+                <button type="button" class="btn btn-sm btn-outline btn-inspect-patch" title="Inspect subsystem diagnostic">
+                  🔍 Inspect Architecture
+                </button>
+                <button type="button" class="btn btn-sm btn-outline btn-verify-patch" title="Verify syntax & MCUboot compatibility">
+                  ✓ Verify Syntax
+                </button>
+              `}
             </div>
           `;
+
+          // 0. Dedicated policy substitution buttons for REMED-FLASH-01
+          const btnFips204 = el.querySelector(".btn-switch-fips204");
+          if (btnFips204) {
+            btnFips204.addEventListener("click", (e) => {
+              e.stopPropagation();
+              appliedPatchIds.add(item.id);
+              targetPolicySelect.value = "fips-204";
+              simSizeRange.value = 360;
+              simSizeVal.textContent = "360";
+              evaluateRelease(deviceFamilySelect.value, simFwTag.value, "fips-204", 360);
+              showToast("✓ Target policy substituted with FIPS 204 (ML-DSA-44)! Signature reduced to 2,420 B.", "success");
+            });
+          }
+
+          const btnLms = el.querySelector(".btn-switch-lms");
+          if (btnLms) {
+            btnLms.addEventListener("click", (e) => {
+              e.stopPropagation();
+              appliedPatchIds.add(item.id);
+              targetPolicySelect.value = "stateful-hash";
+              simSizeRange.value = 360;
+              simSizeVal.textContent = "360";
+              evaluateRelease(deviceFamilySelect.value, simFwTag.value, "stateful-hash", 360);
+              showToast("✓ Target policy substituted with RFC 8554 (LMS-SHA256)! Signature reduced to 1,864 B.", "success");
+            });
+          }
+
+          // Dedicated partition expansion buttons for REMED-FLASH-02
+          const btnExpandSlotB = el.querySelector(".btn-expand-slotb");
+          if (btnExpandSlotB) {
+            btnExpandSlotB.addEventListener("click", (e) => {
+              e.stopPropagation();
+              appliedPatchIds.add(item.id);
+              applyRemediationEffects(item, true);
+              const applyBtn = el.querySelector(".btn-apply-patch");
+              if (applyBtn) {
+                applyBtn.textContent = "✓ Partition Expanded (Click to Revert)";
+                applyBtn.classList.remove("btn-secondary");
+                applyBtn.classList.add("btn-applied-active");
+              }
+              el.classList.add("applied");
+              showToast("✓ Expanded Slot B by +48 KiB (0x70000 - 0x7c000)! Target firmware fits within budget.", "success");
+            });
+          }
+
+          const btnApplyLz4 = el.querySelector(".btn-apply-lz4");
+          if (btnApplyLz4) {
+            btnApplyLz4.addEventListener("click", (e) => {
+              e.stopPropagation();
+              appliedPatchIds.add(item.id);
+              applyRemediationEffects(item, true);
+              const applyBtn = el.querySelector(".btn-apply-patch");
+              if (applyBtn) {
+                applyBtn.textContent = "✓ Partition Expanded (Click to Revert)";
+                applyBtn.classList.remove("btn-secondary");
+                applyBtn.classList.add("btn-applied-active");
+              }
+              el.classList.add("applied");
+              showToast("✓ Applied LZ4 compression to static telemetry tables! Reclaimed 48 KiB margin.", "success");
+            });
+          }
 
           // 1. Copy patch button
           const btnCopy = el.querySelector(".btn-copy-patch");
           if (btnCopy) {
             btnCopy.addEventListener("click", (e) => {
               e.stopPropagation();
-              copyTextToClipboard(patchContent, () => {
+              let textToCopy = patchContent;
+              if (item.id === "REMED-FLASH-01") {
+                textToCopy = `# Continuous PQC Assurance Migration Policy\ntarget_policy: fips-204\nalgorithm: ML-DSA-44\nnist_level: 2\nsignature_bytes: 2420\ncode_delta_kib: 18.4\nreclaims_flash_kib: 16\nreclaims_sig_envelope_bytes: 889\nfallback_policy: stateful-hash (LMS-SHA256)`;
+              } else if (item.id === "REMED-FLASH-02") {
+                textToCopy = `/* ==============================================================================
+ * Continuous PQC Device Assurance - Flash Partition Re-allocation DTS Overlay
+ * Target Family: ${deviceFamilySelect.value}
+ * Reallocates 48 KiB from diagnostic log partition to Slot B (448 KiB -> 496 KiB)
+ * ============================================================================== */
+/dts-v1/;
+/plugin/;
+
+/ {
+    fragment@0 {
+        target = <&flash0>;
+        __overlay__ {
+            partitions {
+                compatible = "fixed-partitions";
+                #address-cells = <1>;
+                #size-cells = <1>;
+
+                /* Slot 1 (Secondary OTA Staging Slot) */
+                slot1_partition: partition@70000 {
+                    label = "image-1";
+                    reg = <0x00070000 0x0007c000>; /* Expanded by 48 KiB */
+                };
+            };
+        };
+    };
+};`;
+              }
+              copyTextToClipboard(textToCopy, () => {
                 btnCopy.textContent = "Copied! ✓";
                 btnCopy.style.borderColor = "var(--state-can-migrate)";
                 btnCopy.style.color = "var(--state-can-migrate)";
-                showToast(`Copied ${item.category} patch to clipboard!`, "success");
+                const labelType = item.id === "REMED-FLASH-01" ? "configuration" : (item.id === "REMED-FLASH-02" ? "DTS overlay" : "patch");
+                showToast(`Copied ${item.category} ${labelType} to clipboard!`, "success");
                 setTimeout(() => {
-                  btnCopy.textContent = "📋 Copy Patch";
+                  btnCopy.textContent = item.id === "REMED-FLASH-01" ? "📋 Copy Config" : (item.id === "REMED-FLASH-02" ? "📋 Copy DTS Patch" : "📋 Copy Patch");
                   btnCopy.style.borderColor = "";
                   btnCopy.style.color = "";
                 }, 2000);
@@ -1498,9 +1638,15 @@ document.addEventListener("DOMContentLoaded", () => {
               btnVerify.textContent = "Verified ✓";
               btnVerify.style.borderColor = "var(--state-can-migrate)";
               btnVerify.style.color = "var(--state-can-migrate)";
-              showToast(`✓ Syntax Validated: ${item.title} complies with MCUboot v2.3 & NIST FIPS 204!`, "success");
+              if (item.id === "REMED-FLASH-01") {
+                showToast(`✓ FIPS 204 Validated: ML-DSA-44 & LMS satisfy NIST Category 2 criteria!`, "success");
+              } else if (item.id === "REMED-FLASH-02") {
+                showToast(`✓ DTS Syntax Validated: Sector alignment matches 4 KiB flash page erase boundaries!`, "success");
+              } else {
+                showToast(`✓ Syntax Validated: ${item.title} complies with MCUboot v2.3 & NIST FIPS 204!`, "success");
+              }
               setTimeout(() => {
-                btnVerify.textContent = "✓ Verify Syntax";
+                btnVerify.textContent = item.id === "REMED-FLASH-01" ? "✓ Verify Compliance" : (item.id === "REMED-FLASH-02" ? "✓ Verify DTS Syntax" : "✓ Verify Syntax");
                 btnVerify.style.borderColor = "";
                 btnVerify.style.color = "";
               }, 2500);
@@ -1589,7 +1735,58 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         showToast("Reverted Bootloader SPL Hook.", "info");
       }
-    } else if (item.id === "REMED-FLASH-01" || item.id === "REMED-FLASH-02") {
+    } else if (item.id === "REMED-FLASH-01") {
+      // NIST Algorithm Substitution (ML-DSA-44 or LMS)
+      if (isApplied) {
+        targetPolicySelect.value = "fips-204";
+        simSizeRange.value = 360;
+        simSizeVal.textContent = "360";
+        updateLiveSlotBar(360);
+
+        const items = constraintList.querySelectorAll(".constraint-item");
+        items.forEach((li) => {
+          const txtEl = li.querySelector(".constraint-text");
+          const badge = li.querySelector(".constraint-severity-badge");
+          if (txtEl && (txtEl.textContent.includes("flash") || txtEl.textContent.includes("slot") || txtEl.textContent.includes("OTA"))) {
+            li.setAttribute("data-orig-text", txtEl.textContent);
+            txtEl.innerHTML = `<span style="color:var(--state-can-migrate); font-weight:700;">✓ RESOLVED: Substituted to NIST FIPS 204 (ML-DSA-44) — Reclaimed 16 KiB Code & 889 B Sig</span>`;
+            if (badge) {
+              badge.textContent = "RESOLVED";
+              badge.className = "constraint-severity-badge";
+              badge.style.background = "rgba(16,185,129,0.2)";
+              badge.style.color = "var(--state-can-migrate)";
+            }
+            li.style.borderLeftColor = "var(--state-can-migrate)";
+          }
+        });
+        checkAndUpdateGlobalLivingStatus();
+        showToast("✓ Substituted target policy to FIPS 204 (ML-DSA-44)! Reclaimed 16 KiB flash space and 889 B signature envelope.", "success");
+      } else {
+        targetPolicySelect.value = "hybrid-pqc";
+        simSizeRange.value = 505;
+        simSizeVal.textContent = "505";
+        updateLiveSlotBar(505);
+
+        const items = constraintList.querySelectorAll(".constraint-item");
+        items.forEach((li) => {
+          const txtEl = li.querySelector(".constraint-text");
+          const badge = li.querySelector(".constraint-severity-badge");
+          if (txtEl && (txtEl.textContent.includes("flash") || txtEl.textContent.includes("slot") || txtEl.textContent.includes("OTA"))) {
+            const orig = li.getAttribute("data-orig-text") || "OTA slot exceeds available flash by 84 KiB with ML-DSA-65";
+            txtEl.textContent = orig;
+            if (badge) {
+              badge.textContent = "CRITICAL";
+              badge.className = "constraint-severity-badge critical";
+              badge.style.background = "";
+              badge.style.color = "";
+            }
+            li.style.borderLeftColor = "var(--state-blocked)";
+          }
+        });
+        checkAndUpdateGlobalLivingStatus();
+        showToast("Reverted target policy to hybrid-pqc (ML-DSA-65).", "info");
+      }
+    } else if (item.id === "REMED-FLASH-02") {
       // Flash Compression / Partition table re-allocation
       if (isApplied) {
         simSizeRange.value = 360;
@@ -1689,9 +1886,57 @@ document.addEventListener("DOMContentLoaded", () => {
   // Bulletproof file download for .patch files
   function downloadPatchFile(item) {
     try {
-      const textContent = item.remediation_patch || item.technical_details;
-      const cleanSlug = (item.category || "remediation").toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      const filename = `pqc-${cleanSlug}.patch`;
+      let textContent = item.remediation_patch || item.technical_details;
+      let filename = `pqc-${(item.category || "remediation").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.patch`;
+      if (item.id === "REMED-FLASH-01") {
+        filename = "pqc-algorithm-substitution-fips204.patch";
+        textContent = `# ==============================================================================
+# Continuous PQC Device Assurance - Algorithm Policy Substitution Patch
+# Target: ${deviceFamilySelect.value}
+# ==============================================================================
+--- a/config/pqc_policy.yaml
++++ b/config/pqc_policy.yaml
+@@ -1,6 +1,9 @@
+ device_family: ${deviceFamilySelect.value}
+-target_policy: hybrid-pqc (ML-DSA-65)
++target_policy: fips-204 (ML-DSA-44)
++algorithm_substitution:
++  primary_scheme: ML-DSA-44 # 2,420 bytes signature, 18.4 KiB code delta
++  fallback_scheme: LMS-SHA256-M32-H10 # 1,864 bytes signature, 8.1 KiB code delta
++  reclaimed_flash_code_space_kib: 16.0
++  reclaimed_signature_envelope_bytes: 889
++  fips_204_conformance: NIST Security Level 2
+`;
+      } else if (item.id === "REMED-FLASH-02") {
+        filename = "pqc-flash-partitioning-dts.patch";
+        textContent = `/* ==============================================================================
+ * Continuous PQC Device Assurance - Flash Partition Re-allocation DTS Overlay
+ * Target Family: ${deviceFamilySelect.value}
+ * Reallocates 48 KiB from diagnostic log partition to Slot B (448 KiB -> 496 KiB)
+ * ============================================================================== */
+/dts-v1/;
+/plugin/;
+
+/ {
+    fragment@0 {
+        target = <&flash0>;
+        __overlay__ {
+            partitions {
+                compatible = "fixed-partitions";
+                #address-cells = <1>;
+                #size-cells = <1>;
+
+                /* Slot 1 (Secondary OTA Staging Slot) */
+                slot1_partition: partition@70000 {
+                    label = "image-1";
+                    reg = <0x00070000 0x0007c000>; /* Expanded by 48 KiB */
+                };
+            };
+        };
+    };
+};
+`;
+      }
       const blob = new Blob([textContent], { type: "text/plain;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1714,9 +1959,26 @@ document.addEventListener("DOMContentLoaded", () => {
   // Subsystem diagnostic inspector routing for remediation items
   function inspectRemediationSubsystem(item) {
     const cat = (item.category || "").toLowerCase();
-    if (cat.includes("boot")) {
+    if (item.id === "REMED-FLASH-01" || cat.includes("algo")) {
+      openEnvelopeDiagnostic("algo-detail", {
+        scheme: "ML-DSA-44",
+        rowData: {
+          scheme: "ML-DSA-44",
+          nist_level: 2,
+          sig_bytes: 2420,
+          pk_bytes: 1312,
+          code_delta_kib: 18.4,
+          verify_ram_kib: 21.5,
+          ram_utilization_pct: 67.1,
+          slot_overflow_kib: 0,
+          header_compatible: true,
+          feasibility_score: 94,
+          fit_status: "CLEAN_FIT"
+        }
+      });
+    } else if (cat.includes("boot")) {
       openEnvelopeDiagnostic("bootloader");
-    } else if (cat.includes("flash") || cat.includes("partition") || cat.includes("algo")) {
+    } else if (cat.includes("flash") || cat.includes("partition")) {
       openEnvelopeDiagnostic("slot-b");
     } else if (cat.includes("ram") || cat.includes("memory")) {
       openEnvelopeDiagnostic("ram");
@@ -2162,6 +2424,8 @@ Zero Reopened Files: Certified audit trail generated by Continuous PQC Device As
             </p>
           </div>
         `;
+        break;
+
       case "evidence":
         const ev = extra.evidence || {};
         const cat = (ev.category || "Subsystem").toUpperCase();

@@ -305,7 +305,9 @@ class AssuranceAPIHandler(BaseHTTPRequestHandler):
             family_id = query.get("family", ["controller-x7"])[0]
             firmware_id = query.get("firmware", ["firmware-4.18.2.bin"])[0]
             policy = query.get("policy", ["hybrid-pqc"])[0]
-            decision = assess(family_id, firmware_id, policy)
+            size_kb_param = query.get("size_kb", [None])[0]
+            sim_size = int(size_kb_param) if size_kb_param else None
+            decision = assess(family_id, firmware_id, policy, simulated_size_kb=sim_size)
             remeds = CompensatingControlAdvisor.analyze_and_advise(decision)
             self._set_headers(200)
             self.wfile.write(json.dumps(remeds, indent=2).encode("utf-8"))
