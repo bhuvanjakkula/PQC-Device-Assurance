@@ -86,6 +86,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentDecision = null;
   let currentStageIndex = 1;
   let activeEvidenceFilter = "all";
+  let activeEvidenceCategory = "all";
+  let activeEvidenceStatus = "all";
   let knownFamilies = {};
   let currentTimelineHistory = [];
 
@@ -590,28 +592,101 @@ document.addEventListener("DOMContentLoaded", () => {
     loadAlgorithmMatrix(dec.device_family, Math.round((flash.total_new_image_bytes || 380 * 1024) / 1024));
   }
 
-  // Render filtered evidence items
+  // Render filtered evidence items with dual-filter and interactive diagnostics
   function renderEvidenceList(evs) {
+    if (!evidenceList) return;
     evidenceList.innerHTML = "";
-    const filtered = activeEvidenceFilter === "all" 
-      ? evs 
-      : evs.filter((e) => e.category.toLowerCase() === activeEvidenceFilter);
+
+    // 1. Calculate live status totals from current full evidence dataset
+    const totalPass = evs.filter((e) => (e.status || "").toUpperCase() === "PASS").length;
+    const totalFail = evs.filter((e) => (e.status || "").toUpperCase() === "FAIL").length;
+    const totalWarn = evs.filter((e) => (e.status || "").toUpperCase() === "WARN").length;
+
+    const countPassBadge = document.getElementById("countPassBadge");
+    const countFailBadge = document.getElementById("countFailBadge");
+    const countWarnBadge = document.getElementById("countWarnBadge");
+    if (countPassBadge) countPassBadge.textContent = totalPass;
+    if (countFailBadge) countFailBadge.textContent = totalFail;
+    if (countWarnBadge) countWarnBadge.textContent = totalWarn;
+
+    // 2. Dual filter: Category AND Status
+    let filtered = evs;
+    if (activeEvidenceCategory !== "all") {
+      filtered = filtered.filter((e) => (e.category || "").toLowerCase() === activeEvidenceCategory.toLowerCase());
+    }
+    if (activeEvidenceStatus !== "all") {
+      filtered = filtered.filter((e) => (e.status || "").toUpperCase() === activeEvidenceStatus.toUpperCase());
+    }
 
     if (filtered.length === 0) {
-      evidenceList.innerHTML = `<div class="subtext-dim" style="padding: 1rem; text-align: center;">No evidence records found for category: ${activeEvidenceFilter}</div>`;
+      const catText = activeEvidenceCategory !== "all" ? `subsystem '${activeEvidenceCategory.toUpperCase()}'` : "all subsystems";
+      const statText = activeEvidenceStatus !== "all" ? `with status '${activeEvidenceStatus}'` : "";
+      evidenceList.innerHTML = `
+        <div class="subtext-dim" style="padding: 1.5rem; text-align: center; background: rgba(0,0,0,0.15); border-radius: var(--radius-sm); border: 1px dashed var(--border-subtle);">
+          🔍 No evidence records found for ${catText} ${statText}.<br>
+          <button type="button" class="btn btn-sm btn-outline" style="margin-top: 0.75rem;" onclick="window.filterEvidenceByStatus('all'); window.filterEvidenceByCategory('all');">
+            Reset Filters
+          </button>
+        </div>
+      `;
       return;
     }
 
+    // 3. Render each evidence finding as an interactive element
     filtered.forEach((ev) => {
       const row = document.createElement("div");
       row.className = "evidence-item";
+      row.setAttribute("role", "button");
+      row.setAttribute("tabindex", "0");
+      row.setAttribute("title", `Click to inspect 5-layer diagnostic for this ${ev.status} finding`);
+
+      const symbol = ev.status === "PASS" ? "✓ " : (ev.status === "FAIL" ? "✗ " : "⚠ ");
+
       row.innerHTML = `
-        <span class="evidence-status-tag ${ev.status}">${ev.status}</span>
+        <button type="button" class="evidence-status-tag ${ev.status}" title="Click to inspect ${ev.status} verification proof" data-status="${ev.status}">
+          ${symbol}${ev.status}
+        </button>
         <div class="evidence-details">
           <div class="evidence-statement">${ev.statement}</div>
           <div class="evidence-sub">${ev.detail || ''}</div>
         </div>
+        <div class="evidence-actions">
+          <button type="button" class="btn-ev-inspect" title="Inspect Sub-System Diagnostic">
+            🔍 Inspect
+          </button>
+        </div>
       `;
+
+      // Status tag button click
+      const statusBtn = row.querySelector(".evidence-status-tag");
+      if (statusBtn) {
+        statusBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openEnvelopeDiagnostic("evidence", { evidence: ev });
+        });
+      }
+
+      // Inspect action button click
+      const inspectBtn = row.querySelector(".btn-ev-inspect");
+      if (inspectBtn) {
+        inspectBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openEnvelopeDiagnostic("evidence", { evidence: ev });
+        });
+      }
+
+      // Entire row click
+      row.addEventListener("click", () => {
+        openEnvelopeDiagnostic("evidence", { evidence: ev });
+      });
+
+      row.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openEnvelopeDiagnostic("evidence", { evidence: ev });
+        }
+      });
+
       evidenceList.appendChild(row);
     });
   }
@@ -1061,13 +1136,48 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentStageIndex < 9) openStageInspector(currentStageIndex + 1);
   });
 
-  // 6. Evidence Filter Tabs
+  // 6. Evidence Filter Tabs (Subsystems) & Status Buttons (PASS, FAIL, WARN)
+  window.filterEvidenceByCategory = function(category) {
+    activeEvidenceCategory = category;
+    activeEvidenceFilter = category;
+    document.querySelectorAll(".ev-tab").forEach((t) => {
+      if (t.getAttribute("data-category") === category) {
+        t.classList.add("active");
+      } else {
+        t.classList.remove("active");
+      }
+    });
+    if (currentDecision) renderEvidenceList(currentDecision.evidence || []);
+  };
+
+  window.filterEvidenceByStatus = function(status) {
+    activeEvidenceStatus = status;
+    document.querySelectorAll(".ev-status-btn").forEach((b) => {
+      if ((b.getAttribute("data-status") || "").toUpperCase() === status.toUpperCase()) {
+        b.classList.add("active");
+      } else {
+        b.classList.remove("active");
+      }
+    });
+    if (currentDecision) renderEvidenceList(currentDecision.evidence || []);
+    if (status !== "all") {
+      showToast(`Filtered: Displaying ${status} findings`, "info");
+    } else {
+      showToast("Displaying all verification findings", "info");
+    }
+  };
+
   document.querySelectorAll(".ev-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
-      document.querySelectorAll(".ev-tab").forEach((t) => t.classList.remove("active"));
-      tab.classList.add("active");
-      activeEvidenceFilter = tab.getAttribute("data-category");
-      if (currentDecision) renderEvidenceList(currentDecision.evidence || []);
+      const cat = tab.getAttribute("data-category") || "all";
+      window.filterEvidenceByCategory(cat);
+    });
+  });
+
+  document.querySelectorAll(".ev-status-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const stat = btn.getAttribute("data-status") || "all";
+      window.filterEvidenceByStatus(stat);
     });
   });
 
@@ -1789,6 +1899,69 @@ Zero Reopened Files: Certified audit trail generated by Continuous PQC Device As
             <p class="subtext-dim" style="line-height: 1.5; background: var(--bg-surface); padding: 0.85rem; border-radius: 4px; border: 1px solid var(--border-subtle); margin-top: 1rem;">
               Mathematical architecture: Lattice-based Module-LWE (NIST FIPS 204). Verified for timing side-channel resistance and stack bounds compliance under embedded watchdog timers.
             </p>
+          </div>
+        `;
+      case "evidence":
+        const ev = extra.evidence || {};
+        const cat = (ev.category || "Subsystem").toUpperCase();
+        const stat = (ev.status || "PASS").toUpperCase();
+        tag = `${cat} VERIFICATION PROOF`;
+        title = `${stat}: ${cat} Telemetry Analysis`;
+
+        let statColor = "var(--state-can-migrate)";
+        let statTextDesc = "PASSED — WITHIN HARDWARE BUDGET";
+        if (stat === "FAIL") {
+          statColor = "var(--state-blocked)";
+          statTextDesc = "FAILED — PARTITION / RESOURCE DEFICIT";
+        } else if (stat === "WARN") {
+          statColor = "var(--state-constraints)";
+          statTextDesc = "WARNING — ATTENTION REQUIRED";
+        }
+
+        html = `
+          <div class="inspector-section">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; gap: 1rem;">
+              <div>
+                <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-cyan); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">SUB-SYSTEM VERIFICATION: ${cat}</span>
+                <div style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-top: 0.3rem; line-height: 1.4;">${ev.statement || ''}</div>
+              </div>
+              <span class="evidence-status-tag ${stat}" style="font-size: 0.85rem; padding: 0.35rem 0.75rem; border-radius: 4px; flex-shrink: 0;">
+                ${stat === 'PASS' ? '✓ ' : (stat === 'FAIL' ? '✗ ' : '⚠ ')}${stat}
+              </span>
+            </div>
+
+            <table class="inspector-table">
+              <tr><th>Target Sub-System</th><td><b>${cat}</b> (${specs.soc_arch || 'ARM Embedded Core'})</td></tr>
+              <tr><th>Assurance Verification</th><td><span style="color: ${statColor}; font-weight: 700;">${statTextDesc}</span></td></tr>
+              ${ev.current_value !== undefined && ev.threshold_value !== undefined ? `
+                <tr><th>Measured Telemetry</th><td><strong>${typeof ev.current_value === 'number' ? ev.current_value.toLocaleString() : ev.current_value} Bytes</strong></td></tr>
+                <tr><th>Allocated Partition Budget</th><td><strong>${typeof ev.threshold_value === 'number' ? ev.threshold_value.toLocaleString() : ev.threshold_value} Bytes</strong></td></tr>
+                <tr><th>Resource Pressure</th><td><b style="color: ${statColor};">${ev.threshold_value > 0 ? (Math.round((ev.current_value / ev.threshold_value) * 1000) / 10) : 100}%</b></td></tr>
+              ` : ''}
+              <tr><th>Diagnostic Metrics</th><td><code>${ev.detail || 'Standard telemetry recorded during automated binary execution.'}</code></td></tr>
+              <tr><th>Target PQC Policy</th><td><b>${dec.recommended_scheme || 'ML-DSA-65'}</b> (${dec.target_policy || 'hybrid-pqc'})</td></tr>
+              <tr><th>Regulatory Baseline</th><td>${cert.standard_id || 'IEC 62443-4-2 / FDA 524B'}</td></tr>
+            </table>
+
+            <h4 style="margin-top: 1rem;">Cryptographic Engineering Analysis</h4>
+            <p class="subtext-dim" style="line-height: 1.5; background: var(--bg-surface); padding: 0.85rem; border-radius: 4px; border: 1px solid var(--border-subtle);">
+              ${stat === 'FAIL' 
+                ? 'CRITICAL DEFICIT: Post-quantum cryptographic footprint exceeds the allocated hardware partition boundaries. Automatic compensating control is available via the Self-Healing Migration Advisor patch generator.' 
+                : (stat === 'WARN' 
+                  ? 'HEADROOM WARNING: Verification operates within acceptable bounds, but resource headroom is constrained under worst-case watchdog or concurrent interrupt conditions.' 
+                  : 'VERIFIED CONFORMANT: All hardware, stack, and timing parameters satisfy zero-reopen criteria without device bricking risk.')}
+            </p>
+
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap;">
+              <button type="button" class="btn btn-sm btn-primary" onclick="window.filterEvidenceByStatus('${stat}'); document.getElementById('envelopeModal').classList.add('hidden');">
+                Filter Evidence List by ${stat}
+              </button>
+              ${stat !== 'PASS' ? `
+                <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('envelopeModal').classList.add('hidden'); const r = document.getElementById('remediationBox'); if(r){r.scrollIntoView({behavior:'smooth',block:'center'});}">
+                  🛠️ Jump to Remediation Patch
+                </button>
+              ` : ''}
+            </div>
           </div>
         `;
         break;

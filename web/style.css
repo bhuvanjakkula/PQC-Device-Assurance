@@ -1334,10 +1334,25 @@ body {
 /* ==========================================================================
    Evidence Filter Tabs & List
    ========================================================================== */
+.evidence-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 900px) {
+  .evidence-toolbar {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
 .evidence-tabs {
   display: flex;
   gap: 0.4rem;
-  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
 }
 
 .ev-tab {
@@ -1346,7 +1361,7 @@ body {
   color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.25rem 0.65rem;
+  padding: 0.28rem 0.65rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1361,6 +1376,101 @@ body {
   background-color: rgba(6, 182, 212, 0.15);
   border-color: var(--color-cyan);
   color: var(--color-cyan);
+}
+
+/* Evidence Status Filter Group */
+.evidence-status-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.status-filter-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-right: 0.2rem;
+}
+
+.ev-status-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ev-status-btn:hover {
+  color: #fff;
+  border-color: var(--border-bright);
+  transform: translateY(-1px);
+}
+
+.ev-status-btn.active {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.08);
+}
+
+.ev-status-btn.ev-status-pass.active {
+  background-color: rgba(16, 185, 129, 0.2);
+  border-color: var(--state-can-migrate);
+  color: var(--state-can-migrate);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+}
+
+.ev-status-btn.ev-status-pass:hover {
+  border-color: var(--state-can-migrate);
+  color: var(--state-can-migrate);
+}
+
+.ev-status-btn.ev-status-fail.active {
+  background-color: rgba(239, 68, 68, 0.2);
+  border-color: var(--state-blocked);
+  color: var(--state-blocked);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+}
+
+.ev-status-btn.ev-status-fail:hover {
+  border-color: var(--state-blocked);
+  color: var(--state-blocked);
+}
+
+.ev-status-btn.ev-status-warn.active {
+  background-color: rgba(245, 158, 11, 0.2);
+  border-color: var(--state-constraints);
+  color: var(--state-constraints);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+}
+
+.ev-status-btn.ev-status-warn:hover {
+  border-color: var(--state-constraints);
+  color: var(--state-constraints);
+}
+
+.ev-count-badge {
+  font-size: 0.65rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+}
+
+.status-symbol {
+  font-weight: 800;
+  font-size: 0.8rem;
 }
 
 .evidence-list {
@@ -1378,39 +1488,81 @@ body {
   gap: 1rem;
   align-items: center;
   transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
 }
 
 .evidence-item:hover {
   border-color: var(--border-bright);
   background-color: var(--bg-card-hover);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  transform: translateY(-1px);
 }
 
+.evidence-item:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 2px;
+}
+
+/* Interactive Status Tag Button on Each Evidence Row */
 .evidence-status-tag {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-family: var(--font-mono);
   font-weight: 700;
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.6rem;
   border-radius: var(--radius-sm);
-  min-width: 45px;
+  min-width: 58px;
   text-align: center;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.evidence-status-tag:hover {
+  transform: scale(1.06);
+  filter: brightness(1.25);
+}
+
+.evidence-status-tag:active {
+  transform: scale(0.96);
 }
 
 .evidence-status-tag.PASS {
   background-color: rgba(16, 185, 129, 0.15);
   color: var(--state-can-migrate);
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.evidence-status-tag.PASS:hover {
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+  background-color: rgba(16, 185, 129, 0.28);
 }
 
 .evidence-status-tag.WARN {
   background-color: rgba(245, 158, 11, 0.15);
   color: var(--state-constraints);
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.evidence-status-tag.WARN:hover {
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+  background-color: rgba(245, 158, 11, 0.28);
 }
 
 .evidence-status-tag.FAIL {
   background-color: rgba(239, 68, 68, 0.15);
   color: var(--state-blocked);
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.evidence-status-tag.FAIL:hover {
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+  background-color: rgba(239, 68, 68, 0.28);
 }
 
 .evidence-details {
@@ -1428,6 +1580,31 @@ body {
   color: var(--text-muted);
   font-family: var(--font-mono);
   margin-top: 0.15rem;
+}
+
+.evidence-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.btn-ev-inspect {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--color-cyan);
+  font-size: 0.72rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-ev-inspect:hover {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: var(--color-cyan);
+  color: #fff;
 }
 
 /* ==========================================================================

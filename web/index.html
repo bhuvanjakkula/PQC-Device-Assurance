@@ -706,14 +706,29 @@
             <button class="btn btn-sm btn-outline" id="exportProofBtn">Export Assurance Proof</button>
           </div>
 
-          <!-- Category filter tabs -->
-          <div class="evidence-tabs">
-            <button class="ev-tab active" data-category="all">All</button>
-            <button class="ev-tab" data-category="flash">Flash</button>
-            <button class="ev-tab" data-category="ram">RAM</button>
-            <button class="ev-tab" data-category="bootloader">Bootloader</button>
-            <button class="ev-tab" data-category="ota">OTA</button>
-            <button class="ev-tab" data-category="crypto">Crypto</button>
+          <!-- Filter Toolbar with Sub-System Categories and Status Buttons -->
+          <div class="evidence-toolbar">
+            <div class="evidence-tabs" id="evidenceCategoryTabs">
+              <button class="ev-tab active" data-category="all">All</button>
+              <button class="ev-tab" data-category="flash">Flash</button>
+              <button class="ev-tab" data-category="ram">RAM</button>
+              <button class="ev-tab" data-category="bootloader">Bootloader</button>
+              <button class="ev-tab" data-category="ota">OTA</button>
+              <button class="ev-tab" data-category="crypto">Crypto</button>
+            </div>
+            <div class="evidence-status-filters" id="evidenceStatusFilters">
+              <span class="status-filter-label">Filter Status:</span>
+              <button class="ev-status-btn active" data-status="all" id="btnStatusAll" title="Show all verification statuses">All</button>
+              <button class="ev-status-btn ev-status-pass" data-status="PASS" id="btnStatusPass" title="Filter to PASS verification findings">
+                <span class="status-symbol">✓</span> PASS <span class="ev-count-badge" id="countPassBadge">0</span>
+              </button>
+              <button class="ev-status-btn ev-status-fail" data-status="FAIL" id="btnStatusFail" title="Filter to FAIL verification findings">
+                <span class="status-symbol">✗</span> FAIL <span class="ev-count-badge" id="countFailBadge">0</span>
+              </button>
+              <button class="ev-status-btn ev-status-warn" data-status="WARN" id="btnStatusWarn" title="Filter to WARN verification findings">
+                <span class="status-symbol">⚠</span> WARN <span class="ev-count-badge" id="countWarnBadge">0</span>
+              </button>
+            </div>
           </div>
 
           <div class="evidence-list" id="evidenceList">
