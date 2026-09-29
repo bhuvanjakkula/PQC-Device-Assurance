@@ -1,0 +1,2 @@
+# Continuous PQC Device Assurance
+# Pure Python standard library implementation with zero external dependencies.

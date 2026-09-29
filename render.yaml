@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: pqc-device-assurance
+    runtime: python
+    plan: starter
+    region: oregon
+    buildCommand: ""
+    startCommand: python cli.py serve --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: PORT
+        value: 10000
