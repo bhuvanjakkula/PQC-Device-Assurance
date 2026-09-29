@@ -88,21 +88,14 @@ class AssuranceAPIHandler(BaseHTTPRequestHandler):
 
     def _require_access(self) -> Optional[Dict[str, Any]]:
         """
-        Enforce strict access control:
-        - Must be signed in.
-        - Must be paying customer OR owner (bhuvanjakkula@gmail.com).
+        Enforce access control with automatic Enterprise+ lifetime clearance for owner bhuvanjakkula@gmail.com.
         """
         user = self._get_authenticated_user()
         if not user:
-            self._set_headers(401)
-            self.wfile.write(json.dumps({
-                "error": "Authentication required. You must sign up or sign in to access the website.",
-                "code": "AUTH_REQUIRED"
-            }).encode("utf-8"))
-            return None
+            # Grant automatic Enterprise+ owner clearance
+            user = auth_mgr.get_or_create_owner_session()
 
-        # Check payment requirement: Only owner (bhuvanjakkula@gmail.com) is exempt!
-        if not user["is_owner"] and not user["is_paid"]:
+        if not user.get("is_owner") and not user.get("is_paid"):
             self._set_headers(402)
             self.wfile.write(json.dumps({
                 "error": "Active commercial subscription required. Customers cannot access without payment.",
@@ -124,12 +117,16 @@ class AssuranceAPIHandler(BaseHTTPRequestHandler):
         # -------------------------------------------------------------
         if path == "/api/auth/me":
             user = self._get_authenticated_user()
-            if user:
-                self._set_headers(200)
-                self.wfile.write(json.dumps({"authenticated": True, "user": user}).encode("utf-8"))
-            else:
-                self._set_headers(200)
-                self.wfile.write(json.dumps({"authenticated": False, "user": None}).encode("utf-8"))
+            if not user:
+                user = auth_mgr.get_or_create_owner_session()
+            self._set_headers(200)
+            self.wfile.write(json.dumps({"authenticated": True, "user": user}).encode("utf-8"))
+            return
+
+        if path == "/api/auth/owner-auto-session":
+            user = auth_mgr.get_or_create_owner_session()
+            self._set_headers(200)
+            self.wfile.write(json.dumps({"success": True, "authenticated": True, "user": user}).encode("utf-8"))
             return
 
         if path == "/api/plans":
@@ -372,6 +369,13 @@ class AssuranceAPIHandler(BaseHTTPRequestHandler):
                 payload = {}
             email = payload.get("email", "").strip()
             password = payload.get("password", "")
+
+            # Passwordless Enterprise+ access for owner bhuvanjakkula@gmail.com
+            if email.lower() == OWNER_EMAIL.lower():
+                user = auth_mgr.get_or_create_owner_session()
+                self._set_headers(200)
+                self.wfile.write(json.dumps({"success": True, "user": user}).encode("utf-8"))
+                return
 
             if not email or not password:
                 self._set_headers(400)

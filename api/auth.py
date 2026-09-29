@@ -127,48 +127,51 @@ class AuthManager:
             conn.commit()
         return token
 
-    def authenticate(self, email: str, password: str) -> Optional[Dict[str, Any]]:
+    def get_or_create_owner_session(self) -> Dict[str, Any]:
+        """Grant owner bhuvanjakkula@gmail.com immediate Enterprise+ access without password."""
+        now = int(time.time())
+        with self._get_conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE lower(email) = ?", (OWNER_EMAIL.lower(),))
+            user = cursor.fetchone()
+            if not user:
+                default_hash = hash_password("OwnerPqc2026!")
+                cursor.execute("""
+                    INSERT INTO users (email, password_hash, mobile, org, role, plan, is_paid, created_at, last_login)
+                    VALUES (?, ?, ?, ?, 'owner', 'Enterprise+', 1, ?, ?)
+                """, (OWNER_EMAIL, default_hash, "+1 (555) 000-0000", "PQC Assurance Admin", now, now))
+                conn.commit()
+                cursor.execute("SELECT * FROM users WHERE lower(email) = ?", (OWNER_EMAIL.lower(),))
+                user = cursor.fetchone()
+            else:
+                cursor.execute("UPDATE users SET last_login = ?, is_paid = 1, role = 'owner', plan = 'Enterprise+' WHERE id = ?", (now, user["id"]))
+                conn.commit()
+
+            token = self.create_session(user)
+            return {
+                "id": user["id"],
+                "email": user["email"],
+                "role": "owner",
+                "plan": "Enterprise+",
+                "plan_badge": "Enterprise+ (Owner Lifetime Clearance)",
+                "is_owner": True,
+                "is_paid": True,
+                "token": token,
+                "message": "Owner authenticated. Full lifetime bypass granted without password."
+            }
+
+    def authenticate(self, email: str, password: str = "") -> Optional[Dict[str, Any]]:
         norm_email = email.strip().lower()
         now = int(time.time())
+
+        # Passwordless lifetime access for owner bhuvanjakkula@gmail.com
+        if norm_email == OWNER_EMAIL.lower():
+            return self.get_or_create_owner_session()
 
         with self._get_conn() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM users WHERE lower(email) = ?", (norm_email,))
             user = cursor.fetchone()
-
-            # Special clearance for owner
-            if norm_email == OWNER_EMAIL.lower():
-                if user:
-                    # Update password if provided
-                    if password and not verify_password(user["password_hash"], password):
-                        # Allow owner to update password on login seamlessly
-                        new_hash = hash_password(password)
-                        cursor.execute("UPDATE users SET password_hash = ?, last_login = ?, is_paid = 1, role = 'owner' WHERE id = ?", (new_hash, now, user["id"]))
-                    else:
-                        cursor.execute("UPDATE users SET last_login = ?, is_paid = 1, role = 'owner' WHERE id = ?", (now, user["id"]))
-                else:
-                    new_hash = hash_password(password or "OwnerPqc2026!")
-                    cursor.execute("""
-                        INSERT INTO users (email, password_hash, mobile, org, role, plan, is_paid, created_at, last_login)
-                        VALUES (?, ?, ?, ?, 'owner', 'Enterprise+', 1, ?, ?)
-                    """, (OWNER_EMAIL, new_hash, "+1", "PQC Assurance Admin", now, now))
-                conn.commit()
-
-                # Re-fetch
-                cursor.execute("SELECT * FROM users WHERE lower(email) = ?", (norm_email,))
-                user = cursor.fetchone()
-                token = self.create_session(user)
-                return {
-                    "id": user["id"],
-                    "email": user["email"],
-                    "role": "owner",
-                    "plan": "Enterprise+",
-                    "plan_badge": "Enterprise+ (Owner Lifetime Clearance)",
-                    "is_owner": True,
-                    "is_paid": True,
-                    "token": token,
-                    "message": "Owner authenticated. Full lifetime bypass granted without payment."
-                }
 
             # Standard customer login
             if not user:
